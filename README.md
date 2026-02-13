@@ -183,7 +183,7 @@ bash scripts/uninstall_system_quick_action.sh
 - Product homepage public URL: `https://yangpei1993.github.io/desktop-assistant/`
 - The deployment workflow is at `.github/workflows/deploy-product-home.yml`.
 - Deployment triggers on `main` and `codex/manman-theme-sync-v2` pushes that touch homepage files, or manually with `workflow_dispatch`.
-- If this repo has never used Pages before, open GitHub repo `Settings -> Pages` and set `Source` to `GitHub Actions` once.
+- Workflow uses `actions/configure-pages` with `enablement: true`; in most repos it will auto-enable Pages.
 
 ## Notes
 
