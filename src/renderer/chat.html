@@ -90,6 +90,17 @@
               Live
             </button>
             <button
+              id="settings-tab-theme"
+              class="settings-tab-btn"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="settings-panel-theme"
+              data-settings-tab="theme"
+            >
+              Theme
+            </button>
+            <button
               id="settings-tab-skills"
               class="settings-tab-btn"
               type="button"
@@ -155,16 +166,6 @@
                   >
                     Save
                   </button>
-                </div>
-              </div>
-              <div class="settings-field">
-                <label for="ui-theme-select">Theme</label>
-                <div class="settings-inline">
-                  <select id="ui-theme-select" class="provider-select">
-                    <option value="dark">Current (Dark)</option>
-                    <option value="light">White</option>
-                  </select>
-                  <button id="ui-theme-save-btn" class="icon-btn" title="Save theme">Save Theme</button>
                 </div>
               </div>
 
@@ -241,6 +242,29 @@
               </div>
               <div class="settings-actions">
                 <button id="live-save-btn" class="icon-btn" title="Save live watch config">Save Live</button>
+              </div>
+            </section>
+
+            <section
+              id="settings-panel-theme"
+              class="settings-tab-panel"
+              role="tabpanel"
+              aria-labelledby="settings-tab-theme"
+              data-settings-panel="theme"
+            >
+              <div class="settings-group-title">Appearance</div>
+              <div class="settings-field">
+                <label for="ui-theme-select">Theme</label>
+                <div class="settings-inline">
+                  <select id="ui-theme-select" class="provider-select">
+                    <option value="dark">Current (Dark)</option>
+                    <option value="light">White</option>
+                  </select>
+                  <button id="ui-theme-save-btn" class="icon-btn" title="Save theme">Save Theme</button>
+                </div>
+              </div>
+              <div class="settings-note">
+                Theme will be applied to both the chat window and floating bubble, keeping the visual style consistent.
               </div>
             </section>
 

@@ -322,7 +322,7 @@ function normalizeSettingsTab(rawTab) {
   const tab = String(rawTab || '')
     .trim()
     .toLowerCase();
-  if (tab === 'live' || tab === 'skills' || tab === 'agents' || tab === 'permissions' || tab === 'about') {
+  if (tab === 'live' || tab === 'theme' || tab === 'skills' || tab === 'agents' || tab === 'permissions' || tab === 'about') {
     return tab;
   }
   return 'api';
@@ -334,6 +334,12 @@ function focusCurrentSettingsTab() {
   }
   if (state.settingsTab === 'live') {
     liveIntervalInput.focus();
+    return;
+  }
+  if (state.settingsTab === 'theme') {
+    if (uiThemeSelect) {
+      uiThemeSelect.focus();
+    }
     return;
   }
   if (state.settingsTab === 'permissions') {
