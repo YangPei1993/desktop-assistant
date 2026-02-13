@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "native-devtools": {
+      "command": "/bin/bash",
+      "args": ["-lc", "exec \"${DESKTOP_ASSISTANT_ROOT}/scripts/mcp/run-native-devtools-mcp.sh\""]
+    },
+    "applescript-mcp": {
+      "command": "/bin/bash",
+      "args": ["-lc", "exec \"${DESKTOP_ASSISTANT_ROOT}/scripts/mcp/run-applescript-mcp.sh\""]
+    },
+    "playwright": {
+      "command": "/bin/bash",
+      "args": ["-lc", "exec \"${DESKTOP_ASSISTANT_ROOT}/scripts/mcp/run-playwright-mcp.sh\" --isolated"]
+    }
+  }
+}

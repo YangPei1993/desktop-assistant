@@ -1,0 +1,78 @@
+{
+  "name": "desktop-assistant",
+  "version": "0.1.0",
+  "description": "Topmost floating desktop assistant with text/voice/image/file input",
+  "main": "src/main.js",
+  "type": "module",
+  "scripts": {
+    "check:runtime": "node scripts/check-runtime.cjs",
+    "prestart": "npm run check:runtime",
+    "predev": "npm run check:runtime",
+    "prepack": "npm run check:runtime",
+    "predist": "npm run check:runtime",
+    "start": "electron .",
+    "dev": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder -m"
+  },
+  "engines": {
+    "node": ">=18.14.1",
+    "npm": ">=9"
+  },
+  "os": [
+    "darwin"
+  ],
+  "dependencies": {
+    "@playwright/mcp": "0.0.64",
+    "applescript-mcp": "2.3.1",
+    "dotenv": "^16.6.1",
+    "jpeg-js": "0.4.4",
+    "native-devtools-mcp": "0.3.4"
+  },
+  "devDependencies": {
+    "electron": "^35.2.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.yangpei.desktopassistant",
+    "productName": "Desktop Assistant",
+    "protocols": [
+      {
+        "name": "Desktop Assistant",
+        "schemes": [
+          "desktopassistant"
+        ]
+      }
+    ],
+    "files": [
+      "src/**/*",
+      "scripts/mcp/**/*",
+      "mcp/**/*",
+      "README.md",
+      "package.json"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "README.md",
+      "scripts/mcp/**/*",
+      "mcp/**/*",
+      "node_modules/native-devtools-mcp/**/*",
+      "node_modules/@sh3ll3x3c/**/*",
+      "node_modules/applescript-mcp/**/*",
+      "node_modules/@playwright/mcp/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Desktop Assistant uses your microphone to transcribe your voice input."
+      },
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "dmg": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    }
+  }
+}

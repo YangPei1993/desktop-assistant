@@ -1,0 +1,103 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+}
+
+.drag-area {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-app-region: no-drag;
+  cursor: grab;
+}
+
+#assistant-bubble {
+  -webkit-app-region: no-drag;
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border: 0;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: #ffffff;
+  cursor: grab;
+  touch-action: none;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  background: linear-gradient(145deg, #2d8cff, #0f53b8);
+}
+
+.bubble-label {
+  display: inline-block;
+  line-height: 1;
+}
+
+.bubble-waiting-dot {
+  position: absolute;
+  right: 5px;
+  top: 5px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  background: #ffbd2e;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+#assistant-bubble.busy {
+  box-shadow: 0 0 0 2px rgba(255, 189, 46, 0.48), 0 10px 22px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+#assistant-bubble.busy .bubble-waiting-dot {
+  opacity: 1;
+  transform: scale(1);
+  animation: bubble-waiting-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes bubble-waiting-pulse {
+  0% {
+    transform: scale(0.9);
+    filter: brightness(0.92);
+  }
+  50% {
+    transform: scale(1.2);
+    filter: brightness(1.1);
+  }
+  100% {
+    transform: scale(0.9);
+    filter: brightness(0.92);
+  }
+}
+
+#assistant-bubble:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(145deg, #42a0ff, #1564d0);
+}
+
+#assistant-bubble:active {
+  transform: translateY(0);
+}
+
+body.dragging .drag-area,
+body.dragging #assistant-bubble {
+  cursor: grabbing;
+}

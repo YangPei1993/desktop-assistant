@@ -1,0 +1,127 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.bubble-toast-list {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+}
+
+.bubble-toast-item {
+  position: relative;
+  width: 100%;
+  height: 108px;
+  min-height: 108px;
+  border-radius: 12px;
+  padding: 10px 30px 10px 12px;
+  color: #eaf4ff;
+  border: 1px solid rgba(94, 137, 197, 0.5);
+  background: linear-gradient(155deg, rgba(13, 24, 42, 0.97), rgba(8, 16, 30, 0.97));
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
+  animation: bubble-toast-enter 0.18s ease-out;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.bubble-toast-item.warn {
+  border-color: rgba(225, 161, 44, 0.62);
+}
+
+.bubble-toast-item.error {
+  border-color: rgba(220, 90, 90, 0.66);
+}
+
+.bubble-toast-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #a8c9ec;
+  margin-bottom: 4px;
+}
+
+.bubble-toast-text {
+  font-size: 13px;
+  line-height: 1.35;
+  color: #f3f9ff;
+  white-space: pre-wrap;
+  flex: 1;
+  height: 72px;
+  max-height: 72px;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+  padding-right: 4px;
+  cursor: default;
+  user-select: text;
+  word-break: break-word;
+}
+
+.bubble-toast-text::-webkit-scrollbar {
+  width: 10px;
+}
+
+.bubble-toast-text::-webkit-scrollbar-thumb {
+  background: rgba(138, 177, 219, 0.35);
+  border-radius: 10px;
+  border: 2px solid rgba(13, 24, 42, 0.97);
+}
+
+.bubble-toast-text::-webkit-scrollbar-thumb:hover {
+  background: rgba(171, 205, 236, 0.5);
+}
+
+.bubble-toast-close-btn {
+  position: absolute;
+  right: 8px;
+  top: 6px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: 1px solid rgba(149, 184, 222, 0.42);
+  background: rgba(21, 37, 57, 0.86);
+  color: #d7e7fa;
+  font-size: 13px;
+  line-height: 18px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.bubble-toast-close-btn:hover {
+  border-color: rgba(175, 203, 234, 0.78);
+  background: rgba(33, 56, 84, 0.92);
+}
+
+.bubble-toast-empty {
+  display: none;
+}
+
+@keyframes bubble-toast-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

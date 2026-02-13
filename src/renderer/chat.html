@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Desktop Assistant</title>
+    <link rel="stylesheet" href="./chat.css" />
+  </head>
+  <body>
+    <div class="window">
+      <header class="topbar drag-region">
+        <div class="title">Desktop Assistant</div>
+        <div class="actions no-drag">
+          <button id="settings-btn" class="icon-btn" title="Settings">Settings</button>
+          <button id="clear-btn" class="icon-btn" title="Clear conversation">Clear</button>
+          <button id="hide-btn" class="icon-btn" title="Hide window">Hide</button>
+        </div>
+      </header>
+
+      <section class="workdir-row no-drag">
+        <span class="provider-label">Run</span>
+        <select id="channel-select" class="provider-select">
+          <option value="cli:codex">CLI · Codex</option>
+        </select>
+        <button id="channel-switch-btn" class="icon-btn provider-switch-btn" title="Switch runtime channel">Switch</button>
+        <span class="workdir-label">Dir</span>
+        <input id="workdir-input" type="text" autocomplete="off" spellcheck="false" />
+        <button id="workdir-pick-btn" class="icon-btn workdir-pick-btn" title="Choose work directory">Pick</button>
+        <button id="workdir-apply-btn" class="icon-btn workdir-apply-btn" title="Apply work directory">Apply</button>
+      </section>
+
+      <main id="messages" class="messages"></main>
+
+      <section class="composer no-drag">
+        <div id="attachment-list" class="attachment-list"></div>
+
+        <textarea
+          id="text-input"
+          placeholder="Type message... (Enter to send, Shift+Enter newline)"
+          rows="3"
+        ></textarea>
+
+        <div class="toolbar">
+          <label class="file-btn" title="Attach images/files">
+            <input id="file-input" type="file" multiple />
+            Attach
+          </label>
+
+          <button id="voice-btn" class="file-btn" title="Record voice">Voice</button>
+
+          <div class="spacer"></div>
+
+          <button id="live-btn" class="live-btn" title="Live watch current screen and proactively discuss">Live</button>
+          <button id="auto-btn" class="auto-btn" title="Run desktop automation with current input">Auto</button>
+          <button id="send-btn" class="send-btn">Send</button>
+        </div>
+
+        <div id="status-line" class="status-line">Ready</div>
+      </section>
+    </div>
+
+    <div id="settings-modal" class="settings-modal hidden">
+      <div class="settings-panel no-drag">
+        <div class="settings-header">
+          <div class="settings-title">Settings</div>
+          <button id="settings-close-btn" class="icon-btn" title="Close settings">Close</button>
+        </div>
+        <div class="settings-body">
+          <div class="settings-tab-nav" role="tablist" aria-label="Settings tabs">
+            <button
+              id="settings-tab-api"
+              class="settings-tab-btn active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              aria-controls="settings-panel-api"
+              data-settings-tab="api"
+            >
+              API
+            </button>
+            <button
+              id="settings-tab-live"
+              class="settings-tab-btn"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="settings-panel-live"
+              data-settings-tab="live"
+            >
+              Live
+            </button>
+            <button
+              id="settings-tab-permissions"
+              class="settings-tab-btn"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="settings-panel-permissions"
+              data-settings-tab="permissions"
+            >
+              Permissions
+            </button>
+            <button
+              id="settings-tab-about"
+              class="settings-tab-btn"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="settings-panel-about"
+              data-settings-tab="about"
+            >
+              About
+            </button>
+          </div>
+
+          <div class="settings-tab-panels">
+            <section
+              id="settings-panel-api"
+              class="settings-tab-panel active"
+              role="tabpanel"
+              aria-labelledby="settings-tab-api"
+              data-settings-panel="api"
+            >
+              <div class="settings-group-title">Defaults</div>
+              <div class="settings-field">
+                <label for="default-channel-select">Default Run Channel</label>
+                <div class="settings-inline">
+                  <select id="default-channel-select" class="provider-select"></select>
+                  <button
+                    id="default-channel-save-btn"
+                    class="icon-btn"
+                    title="Save default run channel"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+
+              <div class="settings-group-title">Cloud API</div>
+              <div class="settings-field">
+                <label for="api-template-select">Provider Template</label>
+                <div class="settings-inline">
+                  <select id="api-template-select" class="provider-select api-template-select">
+                    <option value="openai">OpenAI</option>
+                    <option value="azure">Azure OpenAI</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                  <button id="api-template-fill-btn" class="icon-btn api-template-fill-btn" title="Fill API template">
+                    Fill
+                  </button>
+                </div>
+              </div>
+              <div class="settings-field">
+                <label for="api-base-input">Base URL</label>
+                <input
+                  id="api-base-input"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="https://api.openai.com/v1"
+                />
+              </div>
+              <div class="settings-field">
+                <label for="api-model-input">Model / Deployment</label>
+                <input id="api-model-input" type="text" autocomplete="off" spellcheck="false" placeholder="model name" />
+              </div>
+              <div class="settings-field">
+                <label for="api-key-input">API Key</label>
+                <input
+                  id="api-key-input"
+                  type="password"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="API key (leave empty to keep)"
+                />
+              </div>
+              <div class="settings-actions">
+                <button id="api-save-btn" class="send-btn" title="Save API config">Save API</button>
+              </div>
+            </section>
+
+            <section
+              id="settings-panel-live"
+              class="settings-tab-panel"
+              role="tabpanel"
+              aria-labelledby="settings-tab-live"
+              data-settings-panel="live"
+            >
+              <div class="settings-group-title">Live Watch</div>
+              <div class="settings-field">
+                <label for="live-interval-input">Capture Interval (ms)</label>
+                <input id="live-interval-input" type="number" min="2000" max="30000" step="100" autocomplete="off" spellcheck="false" />
+              </div>
+              <div class="settings-field">
+                <label for="live-summary-frames-input">Rolling Context Frames</label>
+                <input id="live-summary-frames-input" type="number" min="2" max="12" step="1" autocomplete="off" spellcheck="false" />
+              </div>
+              <div class="settings-field">
+                <label for="live-max-image-frames-input">Max In-Memory Images</label>
+                <input id="live-max-image-frames-input" type="number" min="6" max="60" step="1" autocomplete="off" spellcheck="false" />
+              </div>
+              <div class="settings-field">
+                <label for="live-max-images-analysis-input">Max Images Per Analysis</label>
+                <input id="live-max-images-analysis-input" type="number" min="1" max="12" step="1" autocomplete="off" spellcheck="false" />
+              </div>
+              <div class="settings-field">
+                <label for="live-text-only-rounds-input">Text-Only Rounds Before Visual Refresh</label>
+                <input id="live-text-only-rounds-input" type="number" min="1" max="10" step="1" autocomplete="off" spellcheck="false" />
+              </div>
+              <div class="settings-actions">
+                <button id="live-save-btn" class="icon-btn" title="Save live watch config">Save Live</button>
+              </div>
+            </section>
+
+            <section
+              id="settings-panel-permissions"
+              class="settings-tab-panel"
+              role="tabpanel"
+              aria-labelledby="settings-tab-permissions"
+              data-settings-panel="permissions"
+            >
+              <div class="settings-group-title">Runtime</div>
+              <div id="runtime-health-note" class="settings-note">Runtime info loading...</div>
+
+              <div class="settings-group-title">System Permissions</div>
+              <div class="permission-grid">
+                <div class="permission-card" data-permission-card="microphone">
+                  <div class="permission-card-head">
+                    <span class="permission-title">Microphone</span>
+                    <span id="permission-status-microphone" class="permission-status">Unknown</span>
+                  </div>
+                  <div class="permission-note">Voice input transcription requires this permission.</div>
+                  <div class="settings-inline">
+                    <button id="permission-request-microphone" class="icon-btn">Request</button>
+                    <button id="permission-open-microphone" class="icon-btn">Open Settings</button>
+                  </div>
+                </div>
+
+                <div class="permission-card" data-permission-card="screen">
+                  <div class="permission-card-head">
+                    <span class="permission-title">Screen Recording</span>
+                    <span id="permission-status-screen" class="permission-status">Unknown</span>
+                  </div>
+                  <div class="permission-note">Live watch and automation OCR require this permission.</div>
+                  <div class="settings-inline">
+                    <button id="permission-request-screen" class="icon-btn">Check</button>
+                    <button id="permission-open-screen" class="icon-btn">Open Settings</button>
+                  </div>
+                </div>
+
+                <div class="permission-card" data-permission-card="accessibility">
+                  <div class="permission-card-head">
+                    <span class="permission-title">Accessibility</span>
+                    <span id="permission-status-accessibility" class="permission-status">Unknown</span>
+                  </div>
+                  <div class="permission-note">Desktop click/type control requires Accessibility trust.</div>
+                  <div class="settings-inline">
+                    <button id="permission-request-accessibility" class="icon-btn">Request</button>
+                    <button id="permission-open-accessibility" class="icon-btn">Open Settings</button>
+                  </div>
+                </div>
+
+                <div class="permission-card" data-permission-card="automation">
+                  <div class="permission-card-head">
+                    <span class="permission-title">Automation</span>
+                    <span id="permission-status-automation" class="permission-status">Unknown</span>
+                  </div>
+                  <div class="permission-note">AppleScript control is granted by macOS per target app on first run.</div>
+                  <div class="settings-inline">
+                    <button id="permission-request-automation" class="icon-btn">Request</button>
+                    <button id="permission-open-automation" class="icon-btn">Open Settings</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-actions">
+                <button id="permission-refresh-btn" class="icon-btn">Refresh</button>
+              </div>
+            </section>
+
+            <section
+              id="settings-panel-about"
+              class="settings-tab-panel"
+              role="tabpanel"
+              aria-labelledby="settings-tab-about"
+              data-settings-panel="about"
+            >
+              <div class="settings-group-title">Help</div>
+              <div class="settings-note about-note">
+                <a id="about-readme-link" href="#" class="about-link">Open README Help Document</a>
+              </div>
+              <div class="settings-group-title">Developer</div>
+              <div class="settings-note about-note">
+                <div><strong>Name:</strong> pickkkiy</div>
+                <div><strong>Email:</strong> pickkki_y@163.com</div>
+                <div><strong>Douyin:</strong> pickkkiy</div>
+                <div><strong>Bilibili:</strong> pickkkiy</div>
+                <div><strong>Xiaohongshu:</strong> pickkkiy</div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="./chat.js"></script>
+  </body>
+</html>

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Assistant Bubble Toast</title>
+    <link rel="stylesheet" href="./bubble-toast.css" />
+  </head>
+  <body>
+    <div id="bubble-toast-list" class="bubble-toast-list" aria-live="polite"></div>
+    <template id="bubble-toast-item-template">
+      <article class="bubble-toast-item">
+        <button class="bubble-toast-close-btn" type="button" title="Close">×</button>
+        <div class="bubble-toast-title">Desktop Assistant</div>
+        <div class="bubble-toast-text"></div>
+      </article>
+    </template>
+    <div id="bubble-toast-empty" class="bubble-toast-empty" aria-hidden="true">
+      No notifications.
+    </div>
+    <script src="./bubble-toast.js"></script>
+  </body>
+</html>
