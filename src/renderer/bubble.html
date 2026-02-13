@@ -8,8 +8,23 @@
   </head>
   <body>
     <div class="drag-area">
-      <button id="assistant-bubble" title="Open assistant">
-        <span class="bubble-label">AI</span>
+      <button id="assistant-bubble" title="Open manman" aria-label="Open manman">
+        <span class="bubble-mark" aria-hidden="true">
+          <svg class="bubble-logo-symbol" viewBox="0 0 420 420" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle
+              class="bubble-logo-ring-path"
+              cx="210"
+              cy="210"
+              r="165"
+              stroke="#8B8885"
+              stroke-width="18"
+              stroke-linecap="round"
+              stroke-dasharray="955 120"
+              transform="rotate(-18 210 210)"
+            />
+            <circle class="bubble-logo-dot" cx="286" cy="262" r="13" fill="#8B8885" />
+          </svg>
+        </span>
         <span id="bubble-waiting-dot" class="bubble-waiting-dot"></span>
       </button>
     </div>

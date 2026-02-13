@@ -5,15 +5,29 @@ const DOUBLE_CLICK_DELAY_MS = 220;
 let pointerDrag = null;
 let singleClickTimer = null;
 
+function normalizeUiTheme(rawTheme) {
+  const value = String(rawTheme || '')
+    .trim()
+    .toLowerCase();
+  return value === 'light' ? 'light' : 'dark';
+}
+
+function applyUiTheme(rawTheme) {
+  const theme = normalizeUiTheme(rawTheme);
+  document.body.dataset.theme = theme;
+  return theme;
+}
+
 function applyBubbleState(payload) {
   const data = payload && typeof payload === 'object' ? payload : {};
   const busy = Boolean(data.busy);
   const label = String(data.label || '').trim();
+  applyUiTheme(data.uiTheme);
   bubble.classList.toggle('busy', busy);
   if (waitingDot) {
     waitingDot.setAttribute('aria-hidden', busy ? 'false' : 'true');
   }
-  bubble.title = busy ? label || 'Assistant is processing...' : 'Open assistant';
+  bubble.title = busy ? label || 'manman is processing...' : 'Open manman';
 }
 
 function toggleChat() {
@@ -21,7 +35,7 @@ function toggleChat() {
     window.assistantAPI.toggleChat();
     return;
   }
-  window.alert('Assistant bridge is unavailable. Please restart the app.');
+  window.alert('manman bridge is unavailable. Please restart the app.');
 }
 
 function toggleQuickReply() {
@@ -29,7 +43,7 @@ function toggleQuickReply() {
     window.assistantAPI.toggleQuickReply();
     return;
   }
-  window.alert('Assistant bridge is unavailable. Please restart the app.');
+  window.alert('manman bridge is unavailable. Please restart the app.');
 }
 
 function clearSingleClickTimer() {
@@ -153,7 +167,7 @@ bubble.addEventListener('contextmenu', (event) => {
     window.assistantAPI.openBubbleMenu();
     return;
   }
-  const shouldQuit = window.confirm('Quit desktop assistant?');
+  const shouldQuit = window.confirm('Quit manman?');
   if (shouldQuit) {
     window.assistantAPI.quitApp();
   }
@@ -164,3 +178,5 @@ if (window.assistantAPI?.onBubbleState) {
     applyBubbleState(payload);
   });
 }
+
+applyUiTheme('dark');

@@ -17,7 +17,7 @@ func ensureAccessibilityPermission() {
     if AXIsProcessTrustedWithOptions(options) {
         return
     }
-    let message = "Accessibility permission is required. Enable it for Desktop Assistant in System Settings > Privacy & Security > Accessibility.\n"
+    let message = "Accessibility permission is required. Enable it for manman in System Settings > Privacy & Security > Accessibility.\n"
     FileHandle.standardError.write(message.data(using: .utf8)!)
     exit(13)
 }

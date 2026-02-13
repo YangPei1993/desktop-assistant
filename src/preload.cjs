@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('assistantAPI', {
   setLiveWatchFocus: (payload) => ipcRenderer.invoke('assistant:live-watch-focus', payload || {}),
   setLiveWatchConfig: (payload) => ipcRenderer.invoke('assistant:set-live-watch-config', payload || {}),
   getConfig: () => ipcRenderer.invoke('assistant:get-config'),
+  setUiTheme: (uiTheme) => ipcRenderer.invoke('assistant:set-ui-theme', { uiTheme }),
   switchChannel: (channelId) => ipcRenderer.invoke('assistant:switch-channel', { channelId }),
   setDefaultChannel: (channelId) => ipcRenderer.invoke('assistant:set-default-channel', { channelId }),
   setRuntimeMode: (runtimeMode) => ipcRenderer.invoke('assistant:set-runtime-mode', { runtimeMode }),
@@ -34,6 +35,18 @@ contextBridge.exposeInMainWorld('assistantAPI', {
   openPermissionSettings: (kind) => ipcRenderer.invoke('assistant:open-permission-settings', { kind }),
   getRuntimeHealth: () => ipcRenderer.invoke('assistant:get-runtime-health'),
   openReadme: () => ipcRenderer.invoke('assistant:open-readme'),
+  openProductHome: () => ipcRenderer.invoke('assistant:open-product-home'),
+  openPath: (targetPath) => ipcRenderer.invoke('assistant:open-path', { path: targetPath }),
+  getSkillsState: (payload) => ipcRenderer.invoke('assistant:get-skills-state', payload || {}),
+  installCuratedSkill: (payload) => ipcRenderer.invoke('assistant:skill-install-curated', payload || {}),
+  installSkillFromGithub: (payload) => ipcRenderer.invoke('assistant:skill-install-github', payload || {}),
+  createSkill: (payload) => ipcRenderer.invoke('assistant:skill-create', payload || {}),
+  validateSkill: (payload) => ipcRenderer.invoke('assistant:skill-validate', payload || {}),
+  getAgentsWorkflows: () => ipcRenderer.invoke('assistant:get-agents-workflows'),
+  saveAgent: (payload) => ipcRenderer.invoke('assistant:save-agent', payload || {}),
+  deleteAgent: (payload) => ipcRenderer.invoke('assistant:delete-agent', payload || {}),
+  saveWorkflow: (payload) => ipcRenderer.invoke('assistant:save-workflow', payload || {}),
+  deleteWorkflow: (payload) => ipcRenderer.invoke('assistant:delete-workflow', payload || {}),
   transcribeAudio: (payload) => ipcRenderer.invoke('assistant:transcribe-audio', payload || {}),
   setProvider: (provider) => ipcRenderer.invoke('assistant:set-provider', { provider }),
   pickWorkdir: () => ipcRenderer.invoke('assistant:pick-workdir'),
@@ -117,6 +130,14 @@ contextBridge.exposeInMainWorld('assistantAPI', {
     const listener = (_event, payload) => handler(payload);
     ipcRenderer.on('assistant:quick-ask-status', listener);
     return () => ipcRenderer.removeListener('assistant:quick-ask-status', listener);
+  },
+  onUiTheme: (handler) => {
+    if (typeof handler !== 'function') {
+      return () => {};
+    }
+    const listener = (_event, payload) => handler(payload);
+    ipcRenderer.on('assistant:ui-theme', listener);
+    return () => ipcRenderer.removeListener('assistant:ui-theme', listener);
   },
   onBubbleState: (handler) => {
     if (typeof handler !== 'function') {

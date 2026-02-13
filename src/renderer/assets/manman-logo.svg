@@ -1,0 +1,26 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" rx="40" fill="#E8E6E3"/>
+  <circle
+    cx="512"
+    cy="420"
+    r="165"
+    stroke="#8B8885"
+    stroke-width="18"
+    stroke-linecap="round"
+    stroke-dasharray="955 120"
+    transform="rotate(-18 512 420)"
+  />
+  <circle cx="588" cy="472" r="13" fill="#8B8885"/>
+  <text
+    x="512"
+    y="700"
+    text-anchor="middle"
+    fill="#8B8885"
+    font-family="'PingFang SC','Hiragino Sans GB','Noto Sans CJK SC','Microsoft YaHei',sans-serif"
+    font-size="86"
+    font-weight="500"
+    letter-spacing="4"
+  >
+    慢慢
+  </text>
+</svg>

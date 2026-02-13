@@ -3,13 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Desktop Assistant</title>
+    <title>manman</title>
     <link rel="stylesheet" href="./chat.css" />
   </head>
   <body>
     <div class="window">
       <header class="topbar drag-region">
-        <div class="title">Desktop Assistant</div>
+        <div class="title">manman</div>
         <div class="actions no-drag">
           <button id="settings-btn" class="icon-btn" title="Settings">Settings</button>
           <button id="clear-btn" class="icon-btn" title="Clear conversation">Clear</button>
@@ -90,6 +90,28 @@
               Live
             </button>
             <button
+              id="settings-tab-skills"
+              class="settings-tab-btn"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="settings-panel-skills"
+              data-settings-tab="skills"
+            >
+              Skills
+            </button>
+            <button
+              id="settings-tab-agents"
+              class="settings-tab-btn"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="settings-panel-agents"
+              data-settings-tab="agents"
+            >
+              Agents
+            </button>
+            <button
               id="settings-tab-permissions"
               class="settings-tab-btn"
               type="button"
@@ -133,6 +155,16 @@
                   >
                     Save
                   </button>
+                </div>
+              </div>
+              <div class="settings-field">
+                <label for="ui-theme-select">Theme</label>
+                <div class="settings-inline">
+                  <select id="ui-theme-select" class="provider-select">
+                    <option value="dark">Current (Dark)</option>
+                    <option value="light">White</option>
+                  </select>
+                  <button id="ui-theme-save-btn" class="icon-btn" title="Save theme">Save Theme</button>
                 </div>
               </div>
 
@@ -213,6 +245,198 @@
             </section>
 
             <section
+              id="settings-panel-skills"
+              class="settings-tab-panel"
+              role="tabpanel"
+              aria-labelledby="settings-tab-skills"
+              data-settings-panel="skills"
+            >
+              <div class="settings-group-title">Skill Runtime</div>
+              <div id="skills-runtime-note" class="settings-note">Skills info loading...</div>
+              <div class="settings-actions">
+                <button id="skills-refresh-btn" class="icon-btn">Refresh</button>
+                <button id="skills-open-root-btn" class="icon-btn">Open Skills Folder</button>
+              </div>
+
+              <div class="settings-group-title">Installed Skills</div>
+              <div id="skills-installed-list" class="settings-list"></div>
+
+              <div class="settings-group-title">Install from Curated List</div>
+              <div class="settings-field">
+                <label for="skills-curated-select">Curated Skills (openai/skills)</label>
+                <div class="settings-inline">
+                  <select id="skills-curated-select" class="provider-select"></select>
+                  <button id="skills-curated-refresh-btn" class="icon-btn">Reload</button>
+                  <button id="skills-install-curated-btn" class="icon-btn">Install</button>
+                </div>
+              </div>
+
+              <div class="settings-group-title">Install from GitHub</div>
+              <div class="settings-field">
+                <label for="skills-github-url-input">GitHub URL or owner/repo</label>
+                <input
+                  id="skills-github-url-input"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="https://github.com/openai/skills/tree/main/skills/.curated/playwright"
+                />
+              </div>
+              <div class="settings-field">
+                <label for="skills-github-path-input">Path inside repo (optional when URL already has path)</label>
+                <div class="settings-inline">
+                  <input
+                    id="skills-github-path-input"
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="skills/.curated/skill-name"
+                  />
+                  <button id="skills-install-github-btn" class="icon-btn">Install GitHub</button>
+                </div>
+              </div>
+
+              <div class="settings-group-title">Create Skill (Skill Creator)</div>
+              <div class="settings-field">
+                <label for="skill-create-name-input">Skill Name</label>
+                <input id="skill-create-name-input" type="text" autocomplete="off" spellcheck="false" placeholder="my-new-skill" />
+              </div>
+              <div class="settings-field">
+                <label for="skill-create-path-input">Output Directory</label>
+                <input id="skill-create-path-input" type="text" autocomplete="off" spellcheck="false" placeholder="~/.codex/skills" />
+              </div>
+              <div class="settings-field">
+                <label for="skill-create-resources-input">Resources (comma-separated)</label>
+                <input
+                  id="skill-create-resources-input"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="scripts,references,assets"
+                />
+              </div>
+              <div class="settings-field">
+                <label for="skill-create-display-name-input">Display Name (optional)</label>
+                <input id="skill-create-display-name-input" type="text" autocomplete="off" spellcheck="false" placeholder="Skill Display Name" />
+              </div>
+              <div class="settings-field">
+                <label for="skill-create-short-description-input">Short Description (optional, 25-64 chars)</label>
+                <input
+                  id="skill-create-short-description-input"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  placeholder="Help with X tasks and workflows"
+                />
+              </div>
+              <div class="settings-field">
+                <label for="skill-create-default-prompt-input">Default Prompt (optional)</label>
+                <textarea id="skill-create-default-prompt-input" rows="2" spellcheck="false" placeholder="What this skill should do by default"></textarea>
+              </div>
+              <div class="settings-actions">
+                <button id="skill-open-selected-btn" class="icon-btn">Open Selected</button>
+                <button id="skill-validate-btn" class="icon-btn">Validate Selected</button>
+                <button id="skill-create-btn" class="send-btn">Create Skill</button>
+              </div>
+              <div id="skills-status-note" class="settings-note">Select or create a skill to continue.</div>
+            </section>
+
+            <section
+              id="settings-panel-agents"
+              class="settings-tab-panel"
+              role="tabpanel"
+              aria-labelledby="settings-tab-agents"
+              data-settings-panel="agents"
+            >
+              <div class="settings-group-title">Store</div>
+              <div id="agents-store-note" class="settings-note">Agents/workflows loading...</div>
+
+              <div class="settings-group-title">Agents</div>
+              <div class="settings-field">
+                <label for="agent-select">Select Agent</label>
+                <div class="settings-inline">
+                  <select id="agent-select" class="provider-select"></select>
+                  <button id="agent-new-btn" class="icon-btn">New</button>
+                  <button id="agent-delete-btn" class="icon-btn">Delete</button>
+                </div>
+              </div>
+              <div class="settings-field">
+                <label for="agent-name-input">Name</label>
+                <input id="agent-name-input" type="text" autocomplete="off" spellcheck="false" placeholder="Inbox Agent" />
+              </div>
+              <div class="settings-field">
+                <label for="agent-channel-select">Preferred Channel</label>
+                <select id="agent-channel-select" class="provider-select">
+                  <option value="">Follow active</option>
+                  <option value="cli:codex">CLI · Codex</option>
+                  <option value="cli:claude">CLI · Claude</option>
+                  <option value="api">API</option>
+                </select>
+              </div>
+              <div class="settings-field">
+                <label for="agent-skills-input">Skill Hints (comma-separated)</label>
+                <input id="agent-skills-input" type="text" autocomplete="off" spellcheck="false" placeholder="playwright,spreadsheet,doc" />
+              </div>
+              <div class="settings-field">
+                <label for="agent-prompt-input">System Prompt</label>
+                <textarea id="agent-prompt-input" rows="3" spellcheck="false" placeholder="Agent role and constraints"></textarea>
+              </div>
+              <div class="settings-inline settings-toggle-line">
+                <input id="agent-enabled-input" type="checkbox" />
+                <label for="agent-enabled-input">Enabled</label>
+              </div>
+              <div class="settings-actions">
+                <button id="agent-save-btn" class="icon-btn">Save Agent</button>
+              </div>
+
+              <div class="settings-group-title">Workflows</div>
+              <div class="settings-field">
+                <label for="workflow-select">Select Workflow</label>
+                <div class="settings-inline">
+                  <select id="workflow-select" class="provider-select"></select>
+                  <button id="workflow-new-btn" class="icon-btn">New</button>
+                  <button id="workflow-delete-btn" class="icon-btn">Delete</button>
+                </div>
+              </div>
+              <div class="settings-field">
+                <label for="workflow-name-input">Name</label>
+                <input id="workflow-name-input" type="text" autocomplete="off" spellcheck="false" placeholder="Daily inbox scan" />
+              </div>
+              <div class="settings-field">
+                <label for="workflow-agent-select">Agent</label>
+                <select id="workflow-agent-select" class="provider-select"></select>
+              </div>
+              <div class="settings-field">
+                <label for="workflow-mode-select">Mode</label>
+                <select id="workflow-mode-select" class="provider-select">
+                  <option value="auto">Auto</option>
+                  <option value="chat">Chat</option>
+                  <option value="live">Live</option>
+                </select>
+              </div>
+              <div class="settings-field">
+                <label for="workflow-skills-input">Skill Hints (comma-separated)</label>
+                <input id="workflow-skills-input" type="text" autocomplete="off" spellcheck="false" placeholder="playwright,linear" />
+              </div>
+              <div class="settings-field">
+                <label for="workflow-goal-input">Goal / Prompt Template</label>
+                <textarea id="workflow-goal-input" rows="3" spellcheck="false" placeholder="Describe what this workflow should do"></textarea>
+              </div>
+              <div class="settings-inline settings-toggle-line">
+                <input id="workflow-enabled-input" type="checkbox" />
+                <label for="workflow-enabled-input">Enabled</label>
+              </div>
+              <div class="settings-actions">
+                <button id="workflow-to-input-btn" class="icon-btn">To Input</button>
+                <button id="workflow-run-btn" class="send-btn">Run Workflow</button>
+                <button id="workflow-save-btn" class="icon-btn">Save Workflow</button>
+              </div>
+              <div id="agents-workflow-note" class="settings-note">
+                Use workflows to reuse multi-step tasks with selected agents. Template vars: {{input}}, {{date}}, {{time}}, {{datetime}}, {{channel}}, {{provider}}.
+              </div>
+            </section>
+
+            <section
               id="settings-panel-permissions"
               class="settings-tab-panel"
               role="tabpanel"
@@ -285,9 +509,13 @@
               aria-labelledby="settings-tab-about"
               data-settings-panel="about"
             >
+              <div class="settings-group-title">Product</div>
+              <div class="settings-note about-note">
+                <a id="about-product-home-link" href="#" class="about-link">打开 manman 产品介绍页</a>
+              </div>
               <div class="settings-group-title">Help</div>
               <div class="settings-note about-note">
-                <a id="about-readme-link" href="#" class="about-link">Open README Help Document</a>
+                <a id="about-readme-link" href="#" class="about-link">打开 README 文档</a>
               </div>
               <div class="settings-group-title">Developer</div>
               <div class="settings-note about-note">

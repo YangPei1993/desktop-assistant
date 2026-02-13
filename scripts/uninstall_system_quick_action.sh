@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-for name in "Ask Desktop Assistant" "Ask Desktop Assistant Files"; do
+for name in "Ask manman" "Ask manman Files" "Ask Desktop Assistant" "Ask Desktop Assistant Files"; do
   workflow_dir="$HOME/Library/Services/${name}.workflow"
   if [ -d "$workflow_dir" ]; then
     rm -rf "$workflow_dir"

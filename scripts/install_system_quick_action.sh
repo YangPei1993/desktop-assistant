@@ -2,9 +2,10 @@
 set -euo pipefail
 
 SERVICE_DIR="$HOME/Library/Services"
-TEXT_WORKFLOW_NAME="Ask Desktop Assistant"
-FILE_WORKFLOW_NAME="Ask Desktop Assistant Files"
-LEGACY_WORKFLOW_NAME="Ask Desktop Assistant"
+TEXT_WORKFLOW_NAME="Ask manman"
+FILE_WORKFLOW_NAME="Ask manman Files"
+LEGACY_TEXT_WORKFLOW_NAME="Ask Desktop Assistant"
+LEGACY_FILE_WORKFLOW_NAME="Ask Desktop Assistant Files"
 
 COMMON_SCRIPT='set -euo pipefail
 
@@ -13,7 +14,7 @@ if [ ! -t 0 ]; then
   INPUT_TEXT="$(cat || true)"
 fi
 
-PAYLOAD_PATH="${TMPDIR:-/tmp}/desktop-assistant-quick-ask-$$-$RANDOM.json"
+PAYLOAD_PATH="${TMPDIR:-/tmp}/manman-quick-ask-$$-$RANDOM.json"
 
 python3 - "$PAYLOAD_PATH" "$INPUT_TEXT" "$@" <<"PY"
 import json
@@ -65,7 +66,7 @@ print(urllib.parse.quote(sys.argv[1]))
 PY
 )"
 
-open "desktopassistant://quick-ask-file?path=${ENCODED_PATH}" >/dev/null 2>&1 || open "desktopassistant://quick-ask-clipboard" >/dev/null 2>&1
+open "manman://quick-ask-file?path=${ENCODED_PATH}" >/dev/null 2>&1 || open "desktopassistant://quick-ask-file?path=${ENCODED_PATH}" >/dev/null 2>&1 || open "manman://quick-ask-clipboard" >/dev/null 2>&1 || open "desktopassistant://quick-ask-clipboard" >/dev/null 2>&1
 '
 
 write_workflow() {
@@ -364,11 +365,13 @@ PLIST
 }
 
 mkdir -p "$SERVICE_DIR"
-rm -rf "$SERVICE_DIR/${LEGACY_WORKFLOW_NAME}.workflow"
+rm -rf "$SERVICE_DIR/${LEGACY_TEXT_WORKFLOW_NAME}.workflow"
+rm -rf "$SERVICE_DIR/${LEGACY_FILE_WORKFLOW_NAME}.workflow"
+rm -rf "$SERVICE_DIR/${TEXT_WORKFLOW_NAME}.workflow"
 rm -rf "$SERVICE_DIR/${FILE_WORKFLOW_NAME}.workflow"
 
-write_workflow "$TEXT_WORKFLOW_NAME" "com.yangpei.services.askdesktopassistant" "text" "0" "com.apple.Automator.text"
-write_workflow "$FILE_WORKFLOW_NAME" "com.yangpei.services.askdesktopassistant.files" "file" "1" "com.apple.Automator.fileSystemObject"
+write_workflow "$TEXT_WORKFLOW_NAME" "com.yangpei.services.askmanman" "text" "0" "com.apple.Automator.text"
+write_workflow "$FILE_WORKFLOW_NAME" "com.yangpei.services.askmanman.files" "file" "1" "com.apple.Automator.fileSystemObject"
 
 /System/Library/CoreServices/pbs -flush >/dev/null 2>&1 || true
 /System/Library/CoreServices/pbs -update >/dev/null 2>&1 || true

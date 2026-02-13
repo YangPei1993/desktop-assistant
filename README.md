@@ -1,6 +1,6 @@
-# Desktop Assistant (Codex)
+# manman (Codex)
 
-A macOS floating desktop assistant built with Electron, talking to Codex CLI directly.
+A macOS floating desktop assistant built with Electron, with unified chat/automation/live-watch across CLI and cloud channels.
 
 ## Runtime Compatibility
 
@@ -9,18 +9,28 @@ A macOS floating desktop assistant built with Electron, talking to Codex CLI dir
 - npm `>=9`
 - Electron `35.x` (managed in `devDependencies`)
 - MCP runtime uses Electron embedded Node by default in app runtime (no system Node required for end users)
+- Python 3 is required only when using `Settings -> Skills` install/create flows
 
 ## Features
 
 - Always-on-top floating bubble button.
 - Click bubble to open/hide a floating chat window on the current desktop.
-- Direct Codex conversation (`codex exec` + `codex exec resume`).
+- Multi-channel runtime in one window:
+  - `CLI · Codex` (`codex exec` + `codex exec resume`)
+  - `CLI · Claude`
+  - `API · OpenAI/Azure/Custom`
 - Desktop automation mode for app control (plan + execute until done).
 - Live watch mode: continuously observe current screen and proactively point out issues/questions.
 - Preconfigured Claude MCP desktop bundle:
   - `native-devtools-mcp` (screen/OCR/mouse/keyboard)
   - `applescript-mcp` (macOS app scripting)
   - `@playwright/mcp` (browser automation)
+- Built-in settings tabs for:
+  - API template/base/model/key
+  - Live watch parameters
+  - Skills management (install curated/GitHub skills, create/validate skills)
+  - Agents + reusable workflows
+  - macOS permissions diagnostics
 - Inputs:
   - text
   - voice (speech-to-text in renderer)
@@ -28,8 +38,8 @@ A macOS floating desktop assistant built with Electron, talking to Codex CLI dir
   - file attachments (text files inlined; binary files summarized)
 - Right-click bubble to quit.
 - macOS system right-click integration via Quick Actions:
-  - `Ask Desktop Assistant` (selected text)
-  - `Ask Desktop Assistant Files` (selected files/images)
+  - `Ask manman` (selected text)
+  - `Ask manman Files` (selected files/images)
 
 ## Setup
 
@@ -81,6 +91,7 @@ Optional env vars:
 - `CLAUDE_AUTOMATION_PERMISSION_MODE` (default `bypassPermissions`, applies to Auto mode)
 - `CLAUDE_MCP_CONFIG` (comma-separated MCP config file paths/JSON for Claude CLI; empty = use bundled config auto-generated from current app path; set `none` to disable MCP config)
 - `MCP_NODE_BIN` (optional node binary override for MCP wrappers; default empty = use Electron embedded Node runtime)
+- `PYTHON_BIN` (optional Python 3 binary override for skill installer/creator scripts)
 - `CLI_MAX_TEXT_CHARS` (default `12000`)
 - `AUTOMATION_PLAN_TIMEOUT_MS` (default `180000`)
 - `AUTOMATION_MCP_TIMEOUT_MS` (default `120000`, timeout for MCP direct automation call)
@@ -89,10 +100,17 @@ Optional env vars:
 - `AUTOMATION_CAPTURE_SCOPE` (`window` or `full`, default `window` for faster runs)
 - `AUTOMATION_ENGINE` (`auto`/`screen`/`mcp`, default `auto`)
 - `LIVE_WATCH_INTERVAL_MS` (default `2500`)
+- `LIVE_WATCH_ANALYZE_TIMEOUT_MS` (default `90000`, max ms for each cloud visual analysis round)
+- `LIVE_WATCH_NOTIFY_COOLDOWN_MS` (default `8000`, minimum gap between proactive notifications)
+- `LIVE_WATCH_IDLE_STATUS_COOLDOWN_MS` (default `12000`, idle heartbeat status interval)
+- `LIVE_WATCH_MIN_CHANGE_DISTANCE` (default `0.015`, lower bound for perceptual frame-difference trigger)
+- `LIVE_WATCH_MIN_CHANGE_RATIO` (default `0.06`, lower bound for changed-pixel ratio trigger)
 - `LIVE_WATCH_SUMMARY_FRAMES` (default `3`)
 - `LIVE_WATCH_MAX_IMAGE_MEMORY` (default `30`)
 - `LIVE_WATCH_MAX_IMAGES_PER_ANALYSIS` (default `3`)
 - `LIVE_WATCH_TEXT_ONLY_MAX_ROUNDS` (default `4`, number of text-only incremental live rounds before forced visual refresh)
+- `LIVE_WATCH_ATTACHMENT_MAX_WIDTH` (default `1280`, image resize upper bound before upload)
+- `LIVE_WATCH_ATTACHMENT_JPEG_QUALITY` (default `68`, JPEG quality used for live-watch image compression)
 
 4. Start app:
 
@@ -109,7 +127,21 @@ bash scripts/install_system_quick_action.sh
 Then enable it if needed:
 
 - `System Settings` -> `Keyboard` -> `Keyboard Shortcuts...` -> `Services`
-- enable `Ask Desktop Assistant` and `Ask Desktop Assistant Files`
+- enable `Ask manman` and `Ask manman Files`
+
+To remove Quick Actions later:
+
+```bash
+bash scripts/uninstall_system_quick_action.sh
+```
+
+## Development & Packaging
+
+- `npm run check:runtime` -> validate Node/macOS compatibility
+- `npm run dev` -> run Electron app in dev mode
+- `npm start` -> run Electron app (same entry)
+- `npm run pack` -> generate unpacked app bundle
+- `npm run dist` -> build distributable macOS artifacts (`dmg` + `zip`)
 
 ## Usage
 
@@ -123,6 +155,11 @@ Then enable it if needed:
   - Top `Run` selector switches channels in one box (e.g. `CLI · Codex`, `CLI · Claude`, `API · OpenAI/Azure/Custom`)
   - Only available channels are shown (configured/ready ones)
   - Click `Settings` to configure API
+  - `Settings -> About -> Open manman Product Homepage` opens a standalone product intro page with visual assets
+  - `Settings -> API`: save default run channel and cloud API config
+  - `Settings -> Live`: tune live-watch rolling context and analysis frequency
+  - `Settings -> Skills`: refresh/install/create/validate Codex skills
+  - `Settings -> Agents`: save agent/workflow presets and run workflows quickly
   - API settings support provider templates: `OpenAI` / `Azure OpenAI` / `Custom` (`Fill` button pre-fills defaults)
   - Configure `API base/model/key` and click `Save API`
   - Settings -> `Permissions` tab: check/request Microphone / Screen Recording / Accessibility and jump to macOS Settings directly
@@ -138,7 +175,7 @@ Then enable it if needed:
   - Voice button to dictate speech into input text
 - In other apps (system-level):
   - Select text (or select file/image in Finder) and right-click
-  - Choose `Ask Desktop Assistant` (text) or `Ask Desktop Assistant Files` (files/images)
+  - Choose `Ask manman` (text) or `Ask manman Files` (files/images)
   - Assistant window opens and auto-sends the selected content
 
 ## Notes
@@ -171,7 +208,7 @@ Then enable it if needed:
 - Unread-message goals use a local red-badge detector first (chat apps), then fallback to planner.
 - Reference MCP template is at `mcp/desktop-control.mcp.json`; runtime also supports bundled auto-generated MCP config without absolute paths.
 - Packaged builds include MCP config + wrapper scripts (`scripts/mcp` / `mcp`) and use embedded Node runtime for MCP by default.
-- Protocol deep-link used by system quick action: `desktopassistant://...` (registered at app runtime and packaged build).
+- Protocol deep-link used by system quick action: `manman://...` (legacy `desktopassistant://...` remains compatible).
 - For MCP desktop control, macOS may prompt for:
   - Screen Recording
   - Accessibility

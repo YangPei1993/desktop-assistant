@@ -1,7 +1,7 @@
 {
   "name": "desktop-assistant",
   "version": "0.1.0",
-  "description": "Topmost floating desktop assistant with text/voice/image/file input",
+  "description": "manman desktop AI assistant with text/voice/image/file input",
   "main": "src/main.js",
   "type": "module",
   "scripts": {
@@ -35,10 +35,16 @@
   },
   "build": {
     "appId": "com.yangpei.desktopassistant",
-    "productName": "Desktop Assistant",
+    "productName": "manman",
     "protocols": [
       {
-        "name": "Desktop Assistant",
+        "name": "manman",
+        "schemes": [
+          "manman"
+        ]
+      },
+      {
+        "name": "manman Legacy",
         "schemes": [
           "desktopassistant"
         ]
@@ -64,7 +70,7 @@
     "mac": {
       "category": "public.app-category.productivity",
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "Desktop Assistant uses your microphone to transcribe your voice input."
+        "NSMicrophoneUsageDescription": "manman uses your microphone to transcribe your voice input."
       },
       "target": [
         "dmg",

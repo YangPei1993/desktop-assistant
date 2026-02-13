@@ -26,7 +26,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '..');
 const DESKTOP_ASSISTANT_ROOT = app.isPackaged
   ? path.join(process.resourcesPath, 'app.asar.unpacked')
   : PROJECT_ROOT;
-const APP_DISPLAY_NAME = 'Desktop Assistant';
+const APP_DISPLAY_NAME = 'manman';
 
 dotenv.config({ path: path.join(PROJECT_ROOT, '.env') });
 app.setName(APP_DISPLAY_NAME);
@@ -52,13 +52,15 @@ function normalizeLegacyProjectPath(value) {
     return '';
   }
   const normalized = raw.replace(/\\/g, '/');
-  const marker = '/desktop-assistant';
-  if (normalized === marker || normalized.endsWith(marker)) {
-    return DESKTOP_ASSISTANT_ROOT;
-  }
-  const idx = normalized.indexOf(`${marker}/`);
-  if (idx >= 0) {
-    return path.join(DESKTOP_ASSISTANT_ROOT, normalized.slice(idx + marker.length + 1));
+  const markers = ['/desktop-assistant', '/manman'];
+  for (const marker of markers) {
+    if (normalized === marker || normalized.endsWith(marker)) {
+      return DESKTOP_ASSISTANT_ROOT;
+    }
+    const idx = normalized.indexOf(`${marker}/`);
+    if (idx >= 0) {
+      return path.join(DESKTOP_ASSISTANT_ROOT, normalized.slice(idx + marker.length + 1));
+    }
   }
   return raw;
 }
@@ -150,6 +152,15 @@ const MAX_TEXT_CHARS = Number(process.env.CLI_MAX_TEXT_CHARS || 12000);
 const SUPPORTED_PROVIDERS = new Set(['codex', 'claude']);
 const SUPPORTED_RUNTIME_MODES = new Set(['cli', 'api']);
 const SUPPORTED_API_TEMPLATES = new Set(['openai', 'azure', 'custom']);
+const SUPPORTED_AGENT_CHANNELS = new Set(['', 'cli:codex', 'cli:claude', 'api']);
+const SUPPORTED_WORKFLOW_MODES = new Set(['auto', 'chat', 'live']);
+const PYTHON_BIN_CANDIDATES = [
+  String(process.env.PYTHON_BIN || '').trim(),
+  '/usr/bin/python3',
+  '/opt/homebrew/bin/python3',
+  '/usr/local/bin/python3',
+  'python3',
+];
 const AUTOMATION_BIN_PATH = path.join(PROJECT_ROOT, '.runtime', 'macos-control');
 const AUTOMATION_SWIFT_SOURCE = path.join(__dirname, 'automation', 'macos_control.swift');
 const AUTOMATION_PLAN_TIMEOUT_MS = Number(process.env.AUTOMATION_PLAN_TIMEOUT_MS || 180000);
@@ -235,9 +246,13 @@ let bubbleWindow = null;
 let bubbleToastWindow = null;
 let quickReplyWindow = null;
 let chatWindow = null;
+let productHomeWindow = null;
 let chatWindowLoaded = false;
 const pendingChatEvents = [];
-const APP_PROTOCOL = 'desktopassistant';
+const APP_PROTOCOL = 'manman';
+const LEGACY_APP_PROTOCOLS = new Set(['desktopassistant']);
+const SUPPORTED_APP_PROTOCOLS = new Set([APP_PROTOCOL, ...LEGACY_APP_PROTOCOLS]);
+const SUPPORTED_UI_THEMES = new Set(['dark', 'light']);
 let appReadyForDeepLinks = false;
 const pendingDeepLinks = [];
 const BUBBLE_SIZE = 64;
@@ -261,6 +276,7 @@ let claudeSessionId = null;
 let currentWorkdir = path.resolve(CODEX_WORKDIR);
 let currentProvider = SUPPORTED_PROVIDERS.has(DEFAULT_PROVIDER) ? DEFAULT_PROVIDER : 'codex';
 let currentRuntimeMode = SUPPORTED_RUNTIME_MODES.has(DEFAULT_RUNTIME_MODE) ? DEFAULT_RUNTIME_MODE : 'cli';
+let currentUiTheme = 'dark';
 let defaultChannelId = '';
 let defaultChannelApplied = false;
 let cloudApiConfig = {
@@ -506,7 +522,7 @@ function getPermissionSnapshot() {
       microphone: buildPermissionItem('microphone', microphoneStatus, {
         canRequest: process.platform === 'darwin',
         note:
-          'Voice input needs this permission. If denied, open System Settings and enable Desktop Assistant manually.',
+          `Voice input needs this permission. If denied, open System Settings and enable ${APP_DISPLAY_NAME} manually.`,
       }),
       screen: buildPermissionItem('screen', screenStatus, {
         canRequest: process.platform === 'darwin',
@@ -711,13 +727,602 @@ async function pathExists(filePath) {
   }
 }
 
+function getCodexHomePath() {
+  return String(process.env.CODEX_HOME || path.join(os.homedir(), '.codex')).trim();
+}
+
+function getCodexSkillsRootPath() {
+  return path.join(getCodexHomePath(), 'skills');
+}
+
+function getSkillInstallerRootPath() {
+  return path.join(getCodexSkillsRootPath(), '.system', 'skill-installer');
+}
+
+function getSkillCreatorRootPath() {
+  return path.join(getCodexSkillsRootPath(), '.system', 'skill-creator');
+}
+
+function normalizeSkillFolderName(rawName) {
+  const normalized = String(rawName || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+  return normalized.slice(0, 64);
+}
+
+function stripYamlScalarQuotes(value) {
+  const text = String(value || '').trim();
+  if (!text) {
+    return '';
+  }
+  if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) {
+    const unwrapped = text.slice(1, -1);
+    if (text.startsWith('"')) {
+      return unwrapped
+        .replace(/\\n/g, '\n')
+        .replace(/\\"/g, '"')
+        .replace(/\\\\/g, '\\');
+    }
+    return unwrapped;
+  }
+  return text;
+}
+
+function parseSimpleFrontmatter(rawText) {
+  const text = String(rawText || '');
+  const match = text.match(/^---\s*\r?\n([\s\S]*?)\r?\n---/);
+  if (!match) {
+    return {};
+  }
+  const block = String(match[1] || '');
+  const result = {};
+  for (const line of block.split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Za-z0-9_-]+)\s*:\s*(.+?)\s*$/);
+    if (!m) {
+      continue;
+    }
+    const key = String(m[1] || '').trim().toLowerCase();
+    const value = stripYamlScalarQuotes(m[2]);
+    if (!key) {
+      continue;
+    }
+    result[key] = value;
+  }
+  return result;
+}
+
+function parseOpenAiInterface(rawText) {
+  const text = String(rawText || '');
+  const lines = text.split(/\r?\n/);
+  const result = {};
+  let inInterface = false;
+  for (const line of lines) {
+    if (!inInterface) {
+      if (/^\s*interface\s*:\s*$/.test(line)) {
+        inInterface = true;
+      }
+      continue;
+    }
+    if (!line.trim()) {
+      continue;
+    }
+    if (!/^\s{2,}\S/.test(line)) {
+      break;
+    }
+    const m = line.match(/^\s*([A-Za-z0-9_-]+)\s*:\s*(.+?)\s*$/);
+    if (!m) {
+      continue;
+    }
+    const key = String(m[1] || '').trim().toLowerCase();
+    result[key] = stripYamlScalarQuotes(m[2]);
+  }
+  return result;
+}
+
+async function readSkillSummary(skillDir, skillId, source) {
+  const fullPath = path.resolve(skillDir);
+  const skillMdPath = path.join(fullPath, 'SKILL.md');
+  const openaiYamlPath = path.join(fullPath, 'agents', 'openai.yaml');
+  const [hasSkillMd, hasOpenaiYaml] = await Promise.all([pathExists(skillMdPath), pathExists(openaiYamlPath)]);
+  let name = path.basename(fullPath);
+  let description = '';
+  let displayName = '';
+  let shortDescription = '';
+  let stat = null;
+  try {
+    stat = await fs.stat(fullPath);
+  } catch (_error) {
+    stat = null;
+  }
+  if (hasSkillMd) {
+    try {
+      const raw = await fs.readFile(skillMdPath, 'utf8');
+      const frontmatter = parseSimpleFrontmatter(raw);
+      if (frontmatter.name) {
+        name = String(frontmatter.name).trim();
+      }
+      if (frontmatter.description) {
+        description = String(frontmatter.description).trim();
+      }
+    } catch (_error) {
+      // ignore malformed SKILL.md
+    }
+  }
+  if (hasOpenaiYaml) {
+    try {
+      const raw = await fs.readFile(openaiYamlPath, 'utf8');
+      const iface = parseOpenAiInterface(raw);
+      displayName = String(iface.display_name || '').trim();
+      shortDescription = String(iface.short_description || '').trim();
+    } catch (_error) {
+      // ignore malformed openai.yaml
+    }
+  }
+  return {
+    id: String(skillId || name || ''),
+    name,
+    description,
+    displayName,
+    shortDescription,
+    path: fullPath,
+    source: String(source || 'custom'),
+    hasSkillMd,
+    hasOpenaiYaml,
+    updatedAt: stat?.mtime ? stat.mtime.toISOString() : '',
+  };
+}
+
+async function listInstalledSkills() {
+  const skillsRoot = getCodexSkillsRootPath();
+  if (!(await pathExists(skillsRoot))) {
+    return [];
+  }
+
+  const entries = await fs.readdir(skillsRoot, { withFileTypes: true });
+  const candidates = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+    const name = String(entry.name || '');
+    if (!name) {
+      continue;
+    }
+    if (name === '.system') {
+      const systemRoot = path.join(skillsRoot, name);
+      let systemEntries = [];
+      try {
+        systemEntries = await fs.readdir(systemRoot, { withFileTypes: true });
+      } catch (_error) {
+        systemEntries = [];
+      }
+      for (const systemEntry of systemEntries) {
+        if (!systemEntry.isDirectory()) {
+          continue;
+        }
+        const systemName = String(systemEntry.name || '').trim();
+        if (!systemName) {
+          continue;
+        }
+        candidates.push({
+          id: `.system/${systemName}`,
+          path: path.join(systemRoot, systemName),
+          source: 'system',
+        });
+      }
+      continue;
+    }
+    if (name.startsWith('.')) {
+      continue;
+    }
+    candidates.push({
+      id: name,
+      path: path.join(skillsRoot, name),
+      source: 'custom',
+    });
+  }
+
+  candidates.sort((a, b) => a.id.localeCompare(b.id));
+  const summaries = await Promise.all(
+    candidates.map((item) => readSkillSummary(item.path, item.id, item.source).catch(() => null))
+  );
+  return summaries.filter(Boolean);
+}
+
+function parseJsonArrayFromOutput(rawText) {
+  const text = String(rawText || '').trim();
+  if (!text) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_error) {
+    // continue
+  }
+  const start = text.indexOf('[');
+  const end = text.lastIndexOf(']');
+  if (start >= 0 && end > start) {
+    const snippet = text.slice(start, end + 1);
+    try {
+      const parsed = JSON.parse(snippet);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_error) {
+      return [];
+    }
+  }
+  return [];
+}
+
+async function resolvePythonBinary() {
+  for (const candidate of PYTHON_BIN_CANDIDATES) {
+    const bin = String(candidate || '').trim();
+    if (!bin) {
+      continue;
+    }
+    if (path.isAbsolute(bin) && !(await pathExists(bin))) {
+      continue;
+    }
+    try {
+      await runShell(bin, ['--version'], 8000, currentWorkdir);
+      return bin;
+    } catch (_error) {
+      // try next
+    }
+  }
+  throw new Error('Python 3 runtime is unavailable. Install python3 and retry.');
+}
+
+async function runPythonScript(scriptPath, args = [], timeoutMs = 120000) {
+  const fullScriptPath = path.resolve(scriptPath);
+  if (!(await pathExists(fullScriptPath))) {
+    throw new Error(`Script not found: ${fullScriptPath}`);
+  }
+  const pythonBin = await resolvePythonBinary();
+  return runShell(pythonBin, [fullScriptPath, ...args], timeoutMs, currentWorkdir, {
+    env: {
+      CODEX_HOME: getCodexHomePath(),
+    },
+  });
+}
+
+async function listCuratedSkills() {
+  const scriptPath = path.join(getSkillInstallerRootPath(), 'scripts', 'list-skills.py');
+  const result = await runPythonScript(scriptPath, ['--format', 'json'], 45000);
+  const rawItems = parseJsonArrayFromOutput(result.stdout || '');
+  return rawItems
+    .map((item) => {
+      const name = String(item?.name || '').trim();
+      if (!name) {
+        return null;
+      }
+      return {
+        name,
+        installed: Boolean(item?.installed),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function normalizeCuratedSkillName(rawName) {
+  const value = String(rawName || '')
+    .trim()
+    .toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(value)) {
+    throw new Error('Invalid skill name. Use lowercase letters, digits, and hyphens only.');
+  }
+  return value;
+}
+
+async function installCuratedSkill(rawSkillName) {
+  const skillName = normalizeCuratedSkillName(rawSkillName);
+  const scriptPath = path.join(getSkillInstallerRootPath(), 'scripts', 'install-skill-from-github.py');
+  const result = await runPythonScript(
+    scriptPath,
+    ['--repo', 'openai/skills', '--path', `skills/.curated/${skillName}`],
+    120000
+  );
+  return {
+    skillName,
+    stdout: String(result.stdout || '').trim(),
+    stderr: String(result.stderr || '').trim(),
+  };
+}
+
+function normalizeGithubSkillPaths(rawPath) {
+  if (Array.isArray(rawPath)) {
+    return rawPath
+      .map((item) => String(item || '').trim())
+      .filter(Boolean);
+  }
+  return String(rawPath || '')
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+async function installSkillFromGithub(payload = {}) {
+  const scriptPath = path.join(getSkillInstallerRootPath(), 'scripts', 'install-skill-from-github.py');
+  const url = String(payload?.url || '').trim();
+  const repo = String(payload?.repo || '').trim();
+  const ref = String(payload?.ref || '').trim();
+  const name = String(payload?.name || '').trim();
+  const pathItems = normalizeGithubSkillPaths(payload?.path || payload?.paths);
+  const args = [];
+  if (url) {
+    args.push('--url', url);
+  } else {
+    if (!repo) {
+      throw new Error('Provide GitHub URL or owner/repo.');
+    }
+    if (pathItems.length === 0) {
+      throw new Error('Provide path(s) inside repo, such as skills/.curated/my-skill.');
+    }
+    args.push('--repo', repo, '--path', ...pathItems);
+  }
+  if (ref) {
+    args.push('--ref', ref);
+  }
+  if (name) {
+    args.push('--name', name);
+  }
+  const result = await runPythonScript(scriptPath, args, 180000);
+  return {
+    stdout: String(result.stdout || '').trim(),
+    stderr: String(result.stderr || '').trim(),
+  };
+}
+
+function normalizeSkillResourcesCsv(rawResources) {
+  const allowed = new Set(['scripts', 'references', 'assets']);
+  const values = String(rawResources || '')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+  if (values.length === 0) {
+    return '';
+  }
+  const deduped = [];
+  for (const item of values) {
+    if (!allowed.has(item)) {
+      throw new Error(`Unsupported resource type: ${item}`);
+    }
+    if (!deduped.includes(item)) {
+      deduped.push(item);
+    }
+  }
+  return deduped.join(',');
+}
+
+function buildCreatorInterfaceArgs(payload = {}) {
+  const pairs = [];
+  const pushIf = (key, value) => {
+    const text = String(value || '').trim();
+    if (!text) {
+      return;
+    }
+    pairs.push(`${key}=${text}`);
+  };
+  pushIf('display_name', payload.displayName);
+  pushIf('short_description', payload.shortDescription);
+  pushIf('default_prompt', payload.defaultPrompt);
+  return pairs;
+}
+
+async function validateSkillByPath(rawSkillPath) {
+  const skillPath = path.resolve(expandHomeDir(String(rawSkillPath || '').trim()));
+  if (!skillPath) {
+    throw new Error('Skill path is required.');
+  }
+  const scriptPath = path.join(getSkillCreatorRootPath(), 'scripts', 'quick_validate.py');
+  const result = await runPythonScript(scriptPath, [skillPath], 60000);
+  return {
+    path: skillPath,
+    stdout: String(result.stdout || '').trim(),
+    stderr: String(result.stderr || '').trim(),
+  };
+}
+
+async function createSkillWithCreator(payload = {}) {
+  const rawName = String(payload?.skillName || '').trim();
+  if (!rawName) {
+    throw new Error('Skill name is required.');
+  }
+  const normalizedName = normalizeSkillFolderName(rawName);
+  if (!normalizedName) {
+    throw new Error('Skill name is invalid. Use letters, digits, and hyphens.');
+  }
+  const outputRoot = path.resolve(expandHomeDir(String(payload?.outputRoot || getCodexSkillsRootPath()).trim()));
+  const resources = normalizeSkillResourcesCsv(payload?.resources || '');
+  const interfaceArgs = buildCreatorInterfaceArgs(payload);
+  const scriptPath = path.join(getSkillCreatorRootPath(), 'scripts', 'init_skill.py');
+  const args = [rawName, '--path', outputRoot];
+  if (resources) {
+    args.push('--resources', resources);
+  }
+  for (const item of interfaceArgs) {
+    args.push('--interface', item);
+  }
+  const initResult = await runPythonScript(scriptPath, args, 150000);
+  const createdSkillPath = path.join(outputRoot, normalizedName);
+  let validation = null;
+  try {
+    validation = await validateSkillByPath(createdSkillPath);
+  } catch (error) {
+    validation = {
+      path: createdSkillPath,
+      error: String(error?.message || error),
+    };
+  }
+  return {
+    name: normalizedName,
+    path: createdSkillPath,
+    stdout: String(initResult.stdout || '').trim(),
+    stderr: String(initResult.stderr || '').trim(),
+    validation,
+  };
+}
+
+function getAgentsWorkflowFilePath() {
+  return path.join(app.getPath('userData'), 'agents-workflows.json');
+}
+
+let agentsWorkflowCache = null;
+
+function createEntityId(prefix) {
+  const seed = `${prefix}:${Date.now()}:${Math.random()}`;
+  const hash = createHash('sha1')
+    .update(seed)
+    .digest('hex')
+    .slice(0, 10);
+  return `${prefix}_${hash}`;
+}
+
+function normalizeCsvArray(rawValue, maxItems = 32) {
+  const items = Array.isArray(rawValue)
+    ? rawValue
+    : String(rawValue || '')
+        .split(/[\n,]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+  const deduped = [];
+  for (const item of items) {
+    if (!item) {
+      continue;
+    }
+    if (deduped.includes(item)) {
+      continue;
+    }
+    deduped.push(item);
+    if (deduped.length >= maxItems) {
+      break;
+    }
+  }
+  return deduped;
+}
+
+function normalizeAgentRecord(rawAgent = {}) {
+  const id = String(rawAgent.id || '').trim() || createEntityId('agent');
+  const name = String(rawAgent.name || '').trim() || 'New Agent';
+  const channel = normalizeChannelIdOrEmpty(rawAgent.channelId);
+  const prompt = String(rawAgent.prompt || '').trim();
+  const enabled = rawAgent.enabled !== false;
+  const skills = normalizeCsvArray(rawAgent.skills, 24);
+  const nowIso = new Date().toISOString();
+  return {
+    id,
+    name,
+    channelId: SUPPORTED_AGENT_CHANNELS.has(channel) ? channel : '',
+    prompt,
+    skills,
+    enabled,
+    createdAt: String(rawAgent.createdAt || nowIso),
+    updatedAt: String(rawAgent.updatedAt || nowIso),
+  };
+}
+
+function normalizeWorkflowMode(rawMode) {
+  const mode = String(rawMode || '')
+    .trim()
+    .toLowerCase();
+  if (SUPPORTED_WORKFLOW_MODES.has(mode)) {
+    return mode;
+  }
+  return 'auto';
+}
+
+function normalizeWorkflowRecord(rawWorkflow = {}, agentIds = new Set()) {
+  const id = String(rawWorkflow.id || '').trim() || createEntityId('workflow');
+  const name = String(rawWorkflow.name || '').trim() || 'New Workflow';
+  const agentId = String(rawWorkflow.agentId || '').trim();
+  const mode = normalizeWorkflowMode(rawWorkflow.mode);
+  const goal = String(rawWorkflow.goal || '').trim();
+  const enabled = rawWorkflow.enabled !== false;
+  const skills = normalizeCsvArray(rawWorkflow.skills, 32);
+  const nowIso = new Date().toISOString();
+  return {
+    id,
+    name,
+    agentId: agentIds.has(agentId) ? agentId : '',
+    mode,
+    goal,
+    skills,
+    enabled,
+    createdAt: String(rawWorkflow.createdAt || nowIso),
+    updatedAt: String(rawWorkflow.updatedAt || nowIso),
+  };
+}
+
+function normalizeAgentsWorkflowStore(rawStore = {}) {
+  const base = rawStore && typeof rawStore === 'object' ? rawStore : {};
+  const rawAgents = Array.isArray(base.agents) ? base.agents : [];
+  const agents = rawAgents.map((item) => normalizeAgentRecord(item));
+  const dedupedAgents = [];
+  const agentIds = new Set();
+  for (const agent of agents) {
+    if (agentIds.has(agent.id)) {
+      continue;
+    }
+    dedupedAgents.push(agent);
+    agentIds.add(agent.id);
+  }
+
+  const rawWorkflows = Array.isArray(base.workflows) ? base.workflows : [];
+  const workflows = rawWorkflows.map((item) => normalizeWorkflowRecord(item, agentIds));
+  const dedupedWorkflows = [];
+  const workflowIds = new Set();
+  for (const workflow of workflows) {
+    if (workflowIds.has(workflow.id)) {
+      continue;
+    }
+    dedupedWorkflows.push(workflow);
+    workflowIds.add(workflow.id);
+  }
+
+  dedupedAgents.sort((a, b) => a.name.localeCompare(b.name));
+  dedupedWorkflows.sort((a, b) => a.name.localeCompare(b.name));
+  return {
+    agents: dedupedAgents,
+    workflows: dedupedWorkflows,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function loadAgentsWorkflowStore() {
+  if (agentsWorkflowCache) {
+    return agentsWorkflowCache;
+  }
+  const filePath = getAgentsWorkflowFilePath();
+  try {
+    const raw = await fs.readFile(filePath, 'utf8');
+    const parsed = JSON.parse(raw);
+    agentsWorkflowCache = normalizeAgentsWorkflowStore(parsed);
+  } catch (_error) {
+    agentsWorkflowCache = normalizeAgentsWorkflowStore({});
+  }
+  return agentsWorkflowCache;
+}
+
+async function persistAgentsWorkflowStore(store) {
+  const next = normalizeAgentsWorkflowStore(store || {});
+  const filePath = getAgentsWorkflowFilePath();
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+  agentsWorkflowCache = next;
+  return next;
+}
+
 async function getRuntimeHealthSnapshot() {
   const mcpConfigPath = getBundledClaudeMcpConfigPath();
   const nativeMcpScript = path.join(DESKTOP_ASSISTANT_ROOT, 'scripts', 'mcp', 'run-native-devtools-mcp.sh');
   const appleMcpScript = path.join(DESKTOP_ASSISTANT_ROOT, 'scripts', 'mcp', 'run-applescript-mcp.sh');
   const playwrightMcpScript = path.join(DESKTOP_ASSISTANT_ROOT, 'scripts', 'mcp', 'run-playwright-mcp.sh');
-  const codexHome = String(process.env.CODEX_HOME || path.join(os.homedir(), '.codex')).trim();
-  const codexSkillsDir = path.join(codexHome, 'skills');
+  const codexHome = getCodexHomePath();
+  const codexSkillsDir = getCodexSkillsRootPath();
   const [hasMcpConfig, hasNativeScript, hasAppleScript, hasPlaywrightScript, hasCodexSkills] = await Promise.all([
     pathExists(mcpConfigPath),
     pathExists(nativeMcpScript),
@@ -3090,6 +3695,11 @@ async function runAutomationGoal(payload, notify = () => {}, controller = null) 
     phase: 'start',
     goal,
     provider,
+    workflowId: String(payload?.workflowId || ''),
+    workflowName: String(payload?.workflowName || ''),
+    agentId: String(payload?.agentId || ''),
+    agentName: String(payload?.agentName || ''),
+    source: String(payload?.source || ''),
   });
   const logs = [];
   const plans = [];
@@ -5101,7 +5711,7 @@ async function extractClipboardQuickAskPayload() {
     if (png && png.length > 0) {
       const imagePath = path.join(
         os.tmpdir(),
-        `desktop-assistant-clipboard-${Date.now()}-${Math.random().toString(16).slice(2, 8)}.png`
+        `manman-clipboard-${Date.now()}-${Math.random().toString(16).slice(2, 8)}.png`
       );
       await fs.writeFile(imagePath, png);
       attachments.push({
@@ -6090,10 +6700,11 @@ async function runLiveWatchTick() {
   try {
     const captureInfo = await captureScreenFrameInMemory();
     const frontApp = String(captureInfo.appName || '').trim().toLowerCase();
-    if (!forceAnalyze && frontApp.includes('desktop assistant')) {
+    const appNameLower = APP_DISPLAY_NAME.toLowerCase();
+    if (!forceAnalyze && (frontApp.includes(appNameLower) || frontApp.includes('desktop assistant'))) {
       emitLiveWatchStatus({
         phase: 'idle',
-        message: 'Live watch waiting for non-assistant window...',
+        message: `Live watch waiting for non-${APP_DISPLAY_NAME} window...`,
       });
       return;
     }
@@ -6559,7 +7170,7 @@ function showBubbleContextMenu() {
     },
     { type: 'separator' },
     {
-      label: chatWindow && !chatWindow.isDestroyed() && chatWindow.isVisible() ? 'Hide Assistant' : 'Show Assistant',
+      label: chatWindow && !chatWindow.isDestroyed() && chatWindow.isVisible() ? `Hide ${APP_DISPLAY_NAME}` : `Show ${APP_DISPLAY_NAME}`,
       click: () => {
         toggleChatWindow();
       },
@@ -6595,6 +7206,21 @@ function parseDeepLinkEndpoint(parsedUrl) {
     return pathname;
   }
   return '';
+}
+
+function isSupportedDeepLinkProtocol(rawProtocol) {
+  const normalized = String(rawProtocol || '').trim().toLowerCase().replace(/:$/, '');
+  return SUPPORTED_APP_PROTOCOLS.has(normalized);
+}
+
+function isSupportedDeepLinkArg(rawArg) {
+  const value = String(rawArg || '').trim().toLowerCase();
+  for (const protocol of SUPPORTED_APP_PROTOCOLS) {
+    if (value.startsWith(`${protocol}://`)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 async function buildQuickAskPayloadFromExternal(rawPayload) {
@@ -6664,7 +7290,7 @@ async function quickAskFromDeepLink(rawUrl) {
   } catch (_error) {
     return false;
   }
-  if (String(parsed.protocol || '').toLowerCase() !== `${APP_PROTOCOL}:`) {
+  if (!isSupportedDeepLinkProtocol(parsed.protocol)) {
     return false;
   }
 
@@ -6718,14 +7344,16 @@ function enqueueDeepLink(rawUrl) {
 }
 
 function registerProtocolClient() {
-  try {
-    if (process.defaultApp && process.argv.length >= 2) {
-      app.setAsDefaultProtocolClient(APP_PROTOCOL, process.execPath, [path.resolve(process.argv[1])]);
-      return;
+  for (const protocol of SUPPORTED_APP_PROTOCOLS) {
+    try {
+      if (process.defaultApp && process.argv.length >= 2) {
+        app.setAsDefaultProtocolClient(protocol, process.execPath, [path.resolve(process.argv[1])]);
+        continue;
+      }
+      app.setAsDefaultProtocolClient(protocol);
+    } catch (_error) {
+      // Ignore protocol registration failures.
     }
-    app.setAsDefaultProtocolClient(APP_PROTOCOL);
-  } catch (_error) {
-    // Ignore protocol registration failures.
   }
 }
 
@@ -6745,6 +7373,38 @@ async function flushPendingDeepLinks() {
 
 function getAppSettingsFilePath() {
   return path.join(app.getPath('userData'), 'settings.json');
+}
+
+function normalizeUiTheme(rawTheme) {
+  const value = String(rawTheme || '')
+    .trim()
+    .toLowerCase();
+  return SUPPORTED_UI_THEMES.has(value) ? value : 'dark';
+}
+
+function getUiSettingsFilePath() {
+  return path.join(app.getPath('userData'), 'ui-settings.json');
+}
+
+async function loadUiSettings() {
+  currentUiTheme = 'dark';
+  try {
+    const filePath = getUiSettingsFilePath();
+    const raw = await fs.readFile(filePath, 'utf8');
+    const parsed = JSON.parse(raw);
+    currentUiTheme = normalizeUiTheme(parsed?.uiTheme);
+  } catch (_error) {
+    currentUiTheme = 'dark';
+  }
+}
+
+async function persistUiSettings() {
+  const payload = {
+    uiTheme: normalizeUiTheme(currentUiTheme),
+  };
+  const filePath = getUiSettingsFilePath();
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
 }
 
 function getReadmeCandidatePaths() {
@@ -6924,6 +7584,7 @@ function emitBubbleState(label = '') {
   sendBubbleEvent('assistant:bubble-state', {
     busy: bubbleBusySources.size > 0,
     label: String(label || ''),
+    uiTheme: currentUiTheme,
   });
 }
 
@@ -7285,6 +7946,7 @@ function createQuickReplyWindow() {
 }
 
 function createChatWindow() {
+  const backgroundColor = currentUiTheme === 'light' ? '#f3f5f8' : '#0e1218';
   chatWindow = new BrowserWindow({
     width: 420,
     height: 640,
@@ -7296,7 +7958,7 @@ function createChatWindow() {
     skipTaskbar: true,
     alwaysOnTop: true,
     fullscreenable: false,
-    backgroundColor: '#0e1218',
+    backgroundColor,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
@@ -7318,6 +7980,7 @@ function createChatWindow() {
   chatWindow.webContents.on('did-finish-load', () => {
     chatWindowLoaded = true;
     flushPendingChatEvents();
+    sendChatEvent('assistant:ui-theme', { uiTheme: currentUiTheme });
   });
 
   chatWindow.webContents.on('render-process-gone', () => {
@@ -7341,6 +8004,49 @@ function createChatWindow() {
     const menu = Menu.buildFromTemplate(template);
     menu.popup({ window: chatWindow });
   });
+}
+
+function createProductHomeWindow() {
+  productHomeWindow = new BrowserWindow({
+    width: 1120,
+    height: 760,
+    minWidth: 860,
+    minHeight: 560,
+    show: false,
+    frame: true,
+    autoHideMenuBar: true,
+    title: `${APP_DISPLAY_NAME} · Product Intro`,
+    backgroundColor: '#07131f',
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+
+  productHomeWindow.loadFile(path.join(__dirname, 'renderer', 'product-home.html'));
+  productHomeWindow.once('ready-to-show', () => {
+    if (!productHomeWindow || productHomeWindow.isDestroyed()) {
+      return;
+    }
+    productHomeWindow.show();
+    productHomeWindow.focus();
+  });
+  productHomeWindow.on('closed', () => {
+    productHomeWindow = null;
+  });
+}
+
+function showProductHomeWindow() {
+  if (productHomeWindow && !productHomeWindow.isDestroyed()) {
+    if (!productHomeWindow.isVisible()) {
+      productHomeWindow.show();
+    }
+    productHomeWindow.focus();
+    return { ok: true };
+  }
+  createProductHomeWindow();
+  return { ok: true };
 }
 
 function positionChatWindowNearBubble() {
@@ -7689,10 +8395,13 @@ ipcMain.handle('assistant:get-config', async () => {
     channels,
     activeChannelId,
     defaultChannelId: defaultChannelId || '',
+    uiTheme: currentUiTheme,
     codexBin: resolvedCodexBin,
     claudeBin: resolvedClaudeBin,
     model: currentProvider === 'claude' ? CLAUDE_MODEL || null : CODEX_MODEL || null,
     workdir: currentWorkdir,
+    codexHome: getCodexHomePath(),
+    codexSkillsDir: getCodexSkillsRootPath(),
     hasThread: Boolean(codexThreadId || claudeSessionId),
     automationUnlimited: true,
     automationEngine: AUTOMATION_ENGINE,
@@ -7865,6 +8574,28 @@ ipcMain.handle('assistant:set-default-channel', async (_event, payload) => {
   }
 });
 
+ipcMain.handle('assistant:set-ui-theme', async (_event, payload) => {
+  try {
+    currentUiTheme = normalizeUiTheme(payload?.uiTheme);
+    await persistUiSettings();
+    if (chatWindow && !chatWindow.isDestroyed()) {
+      chatWindow.setBackgroundColor(currentUiTheme === 'light' ? '#f3f5f8' : '#0e1218');
+      sendChatEvent('assistant:ui-theme', { uiTheme: currentUiTheme });
+    }
+    emitBubbleState();
+    return {
+      ok: true,
+      uiTheme: currentUiTheme,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: String(error?.message || error),
+      uiTheme: currentUiTheme,
+    };
+  }
+});
+
 ipcMain.handle('assistant:set-runtime-mode', async (_event, payload) => {
   try {
     const mode = normalizeRuntimeMode(payload?.runtimeMode);
@@ -7978,6 +8709,294 @@ ipcMain.handle('assistant:get-runtime-health', async () => {
 ipcMain.handle('assistant:open-readme', async () => {
   try {
     return await openReadmeDocument();
+  } catch (error) {
+    return {
+      ok: false,
+      error: String(error?.message || error),
+    };
+  }
+});
+
+ipcMain.handle('assistant:open-product-home', async () => {
+  try {
+    return showProductHomeWindow();
+  } catch (error) {
+    return {
+      ok: false,
+      error: String(error?.message || error),
+    };
+  }
+});
+
+ipcMain.handle('assistant:open-path', async (_event, payload) => {
+  try {
+    const rawPath = String(payload?.path || '').trim();
+    if (!rawPath) {
+      throw new Error('Path is required.');
+    }
+    const targetPath = path.resolve(expandHomeDir(rawPath));
+    if (!(await pathExists(targetPath))) {
+      throw new Error(`Path not found: ${targetPath}`);
+    }
+    const openResult = await shell.openPath(targetPath);
+    if (openResult) {
+      throw new Error(openResult);
+    }
+    return {
+      ok: true,
+      path: targetPath,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: String(error?.message || error),
+    };
+  }
+});
+
+ipcMain.handle('assistant:get-skills-state', async (_event, payload) => {
+  const includeCurated = payload?.includeCurated !== false;
+  try {
+    const [installedSkills, hasInstaller, hasCreator] = await Promise.all([
+      listInstalledSkills(),
+      pathExists(path.join(getSkillInstallerRootPath(), 'scripts', 'list-skills.py')),
+      pathExists(path.join(getSkillCreatorRootPath(), 'scripts', 'init_skill.py')),
+    ]);
+    let curatedSkills = [];
+    let curatedError = '';
+    if (includeCurated && hasInstaller) {
+      try {
+        curatedSkills = await listCuratedSkills();
+      } catch (error) {
+        curatedError = String(error?.message || error);
+      }
+    }
+    return {
+      ok: true,
+      codexHome: getCodexHomePath(),
+      skillsRoot: getCodexSkillsRootPath(),
+      installerAvailable: hasInstaller,
+      creatorAvailable: hasCreator,
+      installedSkills,
+      curatedSkills,
+      curatedError,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: String(error?.message || error),
+      codexHome: getCodexHomePath(),
+      skillsRoot: getCodexSkillsRootPath(),
+      installerAvailable: false,
+      creatorAvailable: false,
+      installedSkills: [],
+      curatedSkills: [],
+      curatedError: '',
+    };
+  }
+});
+
+ipcMain.handle('assistant:skill-install-curated', async (_event, payload) => {
+  try {
+    const result = await installCuratedSkill(payload?.skillName);
+    const installedSkills = await listInstalledSkills();
+    return {
+      ok: true,
+      ...result,
+      installedSkills,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: String(error?.message || error),
+    };
+  }
+});
+
+ipcMain.handle('assistant:skill-install-github', async (_event, payload) => {
+  try {
+    const result = await installSkillFromGithub(payload || {});
+    const installedSkills = await listInstalledSkills();
+    return {
+      ok: true,
+      ...result,
+      installedSkills,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: String(error?.message || error),
+    };
+  }
+});
+
+ipcMain.handle('assistant:skill-create', async (_event, payload) => {
+  try {
+    const result = await createSkillWithCreator(payload || {});
+    const installedSkills = await listInstalledSkills();
+    return {
+      ok: true,
+      ...result,
+      installedSkills,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: String(error?.message || error),
+    };
+  }
+});
+
+ipcMain.handle('assistant:skill-validate', async (_event, payload) => {
+  try {
+    const result = await validateSkillByPath(payload?.skillPath);
+    return {
+      ok: true,
+      ...result,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: String(error?.message || error),
+    };
+  }
+});
+
+ipcMain.handle('assistant:get-agents-workflows', async () => {
+  try {
+    const store = await loadAgentsWorkflowStore();
+    return {
+      ok: true,
+      store,
+      filePath: getAgentsWorkflowFilePath(),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: String(error?.message || error),
+      store: normalizeAgentsWorkflowStore({}),
+      filePath: getAgentsWorkflowFilePath(),
+    };
+  }
+});
+
+ipcMain.handle('assistant:save-agent', async (_event, payload) => {
+  try {
+    const current = await loadAgentsWorkflowStore();
+    const nextAgent = normalizeAgentRecord(payload?.agent || {});
+    const existingIndex = current.agents.findIndex((item) => item.id === nextAgent.id);
+    const agents = current.agents.slice();
+    if (existingIndex >= 0) {
+      nextAgent.createdAt = agents[existingIndex]?.createdAt || nextAgent.createdAt;
+      agents[existingIndex] = nextAgent;
+    } else {
+      agents.push(nextAgent);
+    }
+    const persisted = await persistAgentsWorkflowStore({
+      ...current,
+      agents,
+      workflows: current.workflows,
+    });
+    return {
+      ok: true,
+      store: persisted,
+      agent: nextAgent,
+      filePath: getAgentsWorkflowFilePath(),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: String(error?.message || error),
+    };
+  }
+});
+
+ipcMain.handle('assistant:delete-agent', async (_event, payload) => {
+  try {
+    const agentId = String(payload?.agentId || '').trim();
+    if (!agentId) {
+      throw new Error('agentId is required.');
+    }
+    const current = await loadAgentsWorkflowStore();
+    const agents = current.agents.filter((item) => item.id !== agentId);
+    const workflows = current.workflows.map((item) => {
+      if (item.agentId !== agentId) {
+        return item;
+      }
+      return {
+        ...item,
+        agentId: '',
+        updatedAt: new Date().toISOString(),
+      };
+    });
+    const persisted = await persistAgentsWorkflowStore({
+      ...current,
+      agents,
+      workflows,
+    });
+    return {
+      ok: true,
+      store: persisted,
+      filePath: getAgentsWorkflowFilePath(),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: String(error?.message || error),
+    };
+  }
+});
+
+ipcMain.handle('assistant:save-workflow', async (_event, payload) => {
+  try {
+    const current = await loadAgentsWorkflowStore();
+    const agentIds = new Set(current.agents.map((item) => item.id));
+    const nextWorkflow = normalizeWorkflowRecord(payload?.workflow || {}, agentIds);
+    const existingIndex = current.workflows.findIndex((item) => item.id === nextWorkflow.id);
+    const workflows = current.workflows.slice();
+    if (existingIndex >= 0) {
+      nextWorkflow.createdAt = workflows[existingIndex]?.createdAt || nextWorkflow.createdAt;
+      workflows[existingIndex] = nextWorkflow;
+    } else {
+      workflows.push(nextWorkflow);
+    }
+    const persisted = await persistAgentsWorkflowStore({
+      ...current,
+      agents: current.agents,
+      workflows,
+    });
+    return {
+      ok: true,
+      store: persisted,
+      workflow: nextWorkflow,
+      filePath: getAgentsWorkflowFilePath(),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: String(error?.message || error),
+    };
+  }
+});
+
+ipcMain.handle('assistant:delete-workflow', async (_event, payload) => {
+  try {
+    const workflowId = String(payload?.workflowId || '').trim();
+    if (!workflowId) {
+      throw new Error('workflowId is required.');
+    }
+    const current = await loadAgentsWorkflowStore();
+    const workflows = current.workflows.filter((item) => item.id !== workflowId);
+    const persisted = await persistAgentsWorkflowStore({
+      ...current,
+      agents: current.agents,
+      workflows,
+    });
+    return {
+      ok: true,
+      store: persisted,
+      filePath: getAgentsWorkflowFilePath(),
+    };
   } catch (error) {
     return {
       ok: false,
@@ -8269,12 +9288,12 @@ app.whenReady().then(async () => {
     embeddedNodeShimDir = '';
   }
   for (const arg of process.argv) {
-    if (String(arg || '').toLowerCase().startsWith(`${APP_PROTOCOL}://`)) {
+    if (isSupportedDeepLinkArg(arg)) {
       enqueueDeepLink(arg);
     }
   }
 
-  await Promise.all([loadBubblePositionState(), removeLegacyAppSettingsFile(), loadAppSettings()]);
+  await Promise.all([loadBubblePositionState(), removeLegacyAppSettingsFile(), loadAppSettings(), loadUiSettings()]);
   createBubbleWindow();
   createQuickReplyWindow();
   createChatWindow();
@@ -8314,6 +9333,7 @@ app.on('before-quit', () => {
     void persistBubblePositionState({ x: bounds.x, y: bounds.y }).catch(() => {});
   }
   void persistAppSettings().catch(() => {});
+  void persistUiSettings().catch(() => {});
 });
 
 app.on('window-all-closed', () => {

@@ -20,6 +20,8 @@ const workdirPickBtn = document.getElementById('workdir-pick-btn');
 const workdirApplyBtn = document.getElementById('workdir-apply-btn');
 const defaultChannelSelect = document.getElementById('default-channel-select');
 const defaultChannelSaveBtn = document.getElementById('default-channel-save-btn');
+const uiThemeSelect = document.getElementById('ui-theme-select');
+const uiThemeSaveBtn = document.getElementById('ui-theme-save-btn');
 const apiTemplateSelect = document.getElementById('api-template-select');
 const apiTemplateFillBtn = document.getElementById('api-template-fill-btn');
 const apiBaseInput = document.getElementById('api-base-input');
@@ -46,7 +48,51 @@ const permissionRequestAccessibilityBtn = document.getElementById('permission-re
 const permissionOpenAccessibilityBtn = document.getElementById('permission-open-accessibility');
 const permissionRequestAutomationBtn = document.getElementById('permission-request-automation');
 const permissionOpenAutomationBtn = document.getElementById('permission-open-automation');
+const aboutProductHomeLink = document.getElementById('about-product-home-link');
 const aboutReadmeLink = document.getElementById('about-readme-link');
+const skillsRuntimeNote = document.getElementById('skills-runtime-note');
+const skillsInstalledList = document.getElementById('skills-installed-list');
+const skillsRefreshBtn = document.getElementById('skills-refresh-btn');
+const skillsOpenRootBtn = document.getElementById('skills-open-root-btn');
+const skillsCuratedSelect = document.getElementById('skills-curated-select');
+const skillsCuratedRefreshBtn = document.getElementById('skills-curated-refresh-btn');
+const skillsInstallCuratedBtn = document.getElementById('skills-install-curated-btn');
+const skillsGithubUrlInput = document.getElementById('skills-github-url-input');
+const skillsGithubPathInput = document.getElementById('skills-github-path-input');
+const skillsInstallGithubBtn = document.getElementById('skills-install-github-btn');
+const skillCreateNameInput = document.getElementById('skill-create-name-input');
+const skillCreatePathInput = document.getElementById('skill-create-path-input');
+const skillCreateResourcesInput = document.getElementById('skill-create-resources-input');
+const skillCreateDisplayNameInput = document.getElementById('skill-create-display-name-input');
+const skillCreateShortDescriptionInput = document.getElementById('skill-create-short-description-input');
+const skillCreateDefaultPromptInput = document.getElementById('skill-create-default-prompt-input');
+const skillCreateBtn = document.getElementById('skill-create-btn');
+const skillValidateBtn = document.getElementById('skill-validate-btn');
+const skillOpenSelectedBtn = document.getElementById('skill-open-selected-btn');
+const skillsStatusNote = document.getElementById('skills-status-note');
+const agentsStoreNote = document.getElementById('agents-store-note');
+const agentSelect = document.getElementById('agent-select');
+const agentNewBtn = document.getElementById('agent-new-btn');
+const agentDeleteBtn = document.getElementById('agent-delete-btn');
+const agentNameInput = document.getElementById('agent-name-input');
+const agentChannelSelect = document.getElementById('agent-channel-select');
+const agentSkillsInput = document.getElementById('agent-skills-input');
+const agentPromptInput = document.getElementById('agent-prompt-input');
+const agentEnabledInput = document.getElementById('agent-enabled-input');
+const agentSaveBtn = document.getElementById('agent-save-btn');
+const workflowSelect = document.getElementById('workflow-select');
+const workflowNewBtn = document.getElementById('workflow-new-btn');
+const workflowDeleteBtn = document.getElementById('workflow-delete-btn');
+const workflowNameInput = document.getElementById('workflow-name-input');
+const workflowAgentSelect = document.getElementById('workflow-agent-select');
+const workflowModeSelect = document.getElementById('workflow-mode-select');
+const workflowSkillsInput = document.getElementById('workflow-skills-input');
+const workflowGoalInput = document.getElementById('workflow-goal-input');
+const workflowEnabledInput = document.getElementById('workflow-enabled-input');
+const workflowToInputBtn = document.getElementById('workflow-to-input-btn');
+const workflowRunBtn = document.getElementById('workflow-run-btn');
+const workflowSaveBtn = document.getElementById('workflow-save-btn');
+const agentsWorkflowNote = document.getElementById('agents-workflow-note');
 const settingsTabButtons = Array.from(document.querySelectorAll('[data-settings-tab]'));
 const settingsTabPanels = Array.from(document.querySelectorAll('[data-settings-panel]'));
 
@@ -78,6 +124,7 @@ const state = {
   runtimeMode: 'cli',
   activeChannelId: 'cli:codex',
   defaultChannelId: '',
+  uiTheme: 'dark',
   channels: [],
   settingsOpen: false,
   settingsTab: 'api',
@@ -113,6 +160,23 @@ const state = {
   liveWatchTextOnlyMaxRounds: 4,
   liveWatchAvailable: false,
   liveWatchFocusHint: '',
+  codexHome: '',
+  codexSkillsDir: '',
+  skillsBusy: false,
+  skillsCuratedLoading: false,
+  skillsInstallerAvailable: false,
+  skillsCreatorAvailable: false,
+  skillsInstalled: [],
+  skillsCurated: [],
+  skillsCuratedError: '',
+  selectedSkillId: '',
+  selectedSkillPath: '',
+  agentsBusy: false,
+  agentsStorePath: '',
+  agents: [],
+  workflows: [],
+  selectedAgentId: '',
+  selectedWorkflowId: '',
 };
 
 function setSendButtonMode(mode) {
@@ -202,6 +266,35 @@ function normalizeChannelId(rawChannelId) {
   return '';
 }
 
+function normalizeUiTheme(rawTheme) {
+  const value = String(rawTheme || '')
+    .trim()
+    .toLowerCase();
+  return value === 'light' ? 'light' : 'dark';
+}
+
+function applyUiTheme(rawTheme) {
+  const theme = normalizeUiTheme(rawTheme);
+  state.uiTheme = theme;
+  document.body.dataset.theme = theme;
+  if (uiThemeSelect && uiThemeSelect.value !== theme) {
+    uiThemeSelect.value = theme;
+  }
+  const statusIsError = statusLine?.dataset?.toneError === '1';
+  if (statusLine) {
+    statusLine.style.color = toneColor('status', statusIsError);
+  }
+  const skillsIsError = skillsStatusNote?.dataset?.toneError === '1';
+  if (skillsStatusNote) {
+    skillsStatusNote.style.color = toneColor('note', skillsIsError);
+  }
+  const agentsIsError = agentsWorkflowNote?.dataset?.toneError === '1';
+  if (agentsWorkflowNote) {
+    agentsWorkflowNote.style.color = toneColor('note', agentsIsError);
+  }
+  return theme;
+}
+
 function channelLabel(channelId) {
   const id = normalizeChannelId(channelId);
   if (!id) {
@@ -229,7 +322,7 @@ function normalizeSettingsTab(rawTab) {
   const tab = String(rawTab || '')
     .trim()
     .toLowerCase();
-  if (tab === 'live' || tab === 'permissions' || tab === 'about') {
+  if (tab === 'live' || tab === 'skills' || tab === 'agents' || tab === 'permissions' || tab === 'about') {
     return tab;
   }
   return 'api';
@@ -249,7 +342,23 @@ function focusCurrentSettingsTab() {
     }
     return;
   }
+  if (state.settingsTab === 'skills') {
+    if (skillsRefreshBtn) {
+      skillsRefreshBtn.focus();
+    }
+    return;
+  }
+  if (state.settingsTab === 'agents') {
+    if (agentSelect) {
+      agentSelect.focus();
+    }
+    return;
+  }
   if (state.settingsTab === 'about') {
+    if (aboutProductHomeLink) {
+      aboutProductHomeLink.focus();
+      return;
+    }
     if (aboutReadmeLink) {
       aboutReadmeLink.focus();
       return;
@@ -281,6 +390,12 @@ function setSettingsTab(rawTab, options = {}) {
   updateRuntimeUiState();
   if (state.settingsOpen && tab === 'permissions') {
     void refreshPermissionPanel({ silent: true });
+  }
+  if (state.settingsOpen && tab === 'skills') {
+    void refreshSkillsState({ includeCurated: true, silent: true });
+  }
+  if (state.settingsOpen && tab === 'agents') {
+    void refreshAgentsWorkflows({ silent: true });
   }
   if (focus) {
     focusCurrentSettingsTab();
@@ -429,6 +544,933 @@ async function refreshPermissionPanel({ silent = false } = {}) {
   }
 }
 
+function parseCsvInput(rawValue, maxItems = 32) {
+  const values = String(rawValue || '')
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const deduped = [];
+  for (const item of values) {
+    if (deduped.includes(item)) {
+      continue;
+    }
+    deduped.push(item);
+    if (deduped.length >= maxItems) {
+      break;
+    }
+  }
+  return deduped;
+}
+
+function joinCsv(values) {
+  if (!Array.isArray(values) || values.length === 0) {
+    return '';
+  }
+  return values
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)
+    .join(', ');
+}
+
+function toneColor(kind, isError = false) {
+  const lightTheme = state.uiTheme === 'light';
+  if (isError) {
+    return lightTheme ? '#b34343' : '#ffb7b7';
+  }
+  if (kind === 'status') {
+    return lightTheme ? '#5f7894' : '#90a9c5';
+  }
+  return lightTheme ? '#4a6685' : '#b8cde4';
+}
+
+function setSkillsStatus(message, isError = false) {
+  if (!skillsStatusNote) {
+    return;
+  }
+  skillsStatusNote.textContent = String(message || '');
+  skillsStatusNote.dataset.toneError = isError ? '1' : '0';
+  skillsStatusNote.style.color = toneColor('note', isError);
+}
+
+function updateSkillsRuntimeNote() {
+  if (!skillsRuntimeNote) {
+    return;
+  }
+  const lines = [
+    `CODEX_HOME: ${state.codexHome || '-'}`,
+    `Skills Root: ${state.codexSkillsDir || '-'}`,
+    `Installer: ${state.skillsInstallerAvailable ? 'ready' : 'missing'} · Creator: ${state.skillsCreatorAvailable ? 'ready' : 'missing'}`,
+    `Installed: ${state.skillsInstalled.length} · Curated: ${state.skillsCurated.length}`,
+  ];
+  if (state.skillsCuratedError) {
+    lines.push(`Curated list error: ${state.skillsCuratedError}`);
+  }
+  skillsRuntimeNote.textContent = lines.join('\n');
+}
+
+function selectSkillByIdentity(identity) {
+  const nextIdentity = String(identity || '').trim();
+  if (!nextIdentity) {
+    state.selectedSkillId = '';
+    state.selectedSkillPath = '';
+    return;
+  }
+  const matched = state.skillsInstalled.find(
+    (item) => String(item.id || '') === nextIdentity || String(item.path || '') === nextIdentity
+  );
+  if (!matched) {
+    state.selectedSkillId = '';
+    state.selectedSkillPath = '';
+    return;
+  }
+  state.selectedSkillId = String(matched.id || '');
+  state.selectedSkillPath = String(matched.path || '');
+}
+
+function renderSkillsCuratedOptions() {
+  if (!skillsCuratedSelect) {
+    return;
+  }
+  const curated = Array.isArray(state.skillsCurated) ? state.skillsCurated : [];
+  const previous = String(skillsCuratedSelect.value || '').trim();
+  skillsCuratedSelect.innerHTML = '';
+  if (curated.length === 0) {
+    const emptyOption = document.createElement('option');
+    emptyOption.value = '';
+    emptyOption.textContent = state.skillsCuratedError ? 'Unavailable' : 'No curated skills loaded';
+    skillsCuratedSelect.appendChild(emptyOption);
+    skillsCuratedSelect.value = '';
+    return;
+  }
+  for (const item of curated) {
+    const name = String(item?.name || '').trim();
+    if (!name) {
+      continue;
+    }
+    const option = document.createElement('option');
+    option.value = name;
+    option.textContent = item?.installed ? `${name} (installed)` : name;
+    skillsCuratedSelect.appendChild(option);
+  }
+  const names = curated.map((item) => String(item?.name || '').trim()).filter(Boolean);
+  skillsCuratedSelect.value = names.includes(previous) ? previous : names[0] || '';
+}
+
+function renderInstalledSkillsList() {
+  if (!skillsInstalledList) {
+    return;
+  }
+  const installed = Array.isArray(state.skillsInstalled) ? state.skillsInstalled : [];
+  const selectedIdentity = state.selectedSkillId || state.selectedSkillPath || '';
+  skillsInstalledList.innerHTML = '';
+  if (installed.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'settings-list-empty';
+    empty.textContent = 'No installed skills found. Install or create one first.';
+    skillsInstalledList.appendChild(empty);
+    state.selectedSkillId = '';
+    state.selectedSkillPath = '';
+    return;
+  }
+
+  const hasSelected = installed.some(
+    (item) => String(item.id || '') === selectedIdentity || String(item.path || '') === selectedIdentity
+  );
+  if (!hasSelected) {
+    selectSkillByIdentity(String(installed[0]?.id || installed[0]?.path || ''));
+  }
+
+  for (const item of installed) {
+    const id = String(item.id || '');
+    const itemPath = String(item.path || '');
+    const source = String(item.source || 'custom');
+    const title = String(item.displayName || item.name || id || 'skill');
+    const description = String(item.shortDescription || item.description || '').trim();
+    const selected = id === state.selectedSkillId || itemPath === state.selectedSkillPath;
+
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = `skill-item${selected ? ' selected' : ''}`;
+    card.dataset.skillId = id;
+    card.dataset.skillPath = itemPath;
+
+    const top = document.createElement('div');
+    top.className = 'skill-item-top';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'skill-item-title';
+    titleEl.textContent = source === 'system' ? `${title} (.system)` : title;
+    top.appendChild(titleEl);
+
+    const meta = document.createElement('div');
+    meta.className = 'skill-item-meta';
+    meta.textContent = itemPath;
+
+    card.appendChild(top);
+    card.appendChild(meta);
+
+    if (description) {
+      const desc = document.createElement('div');
+      desc.className = 'skill-item-desc';
+      desc.textContent = description;
+      card.appendChild(desc);
+    }
+
+    card.addEventListener('click', () => {
+      selectSkillByIdentity(id || itemPath);
+      renderInstalledSkillsList();
+      const selectedSkill = state.skillsInstalled.find((entry) => String(entry.id || '') === state.selectedSkillId);
+      if (selectedSkill) {
+        setSkillsStatus(`Selected: ${selectedSkill.displayName || selectedSkill.name}`);
+      }
+      updateRuntimeUiState();
+    });
+    skillsInstalledList.appendChild(card);
+  }
+}
+
+async function refreshSkillsState({ includeCurated = true, silent = false } = {}) {
+  if (!window.assistantAPI?.getSkillsState || state.skillsBusy) {
+    return false;
+  }
+  state.skillsBusy = true;
+  updateRuntimeUiState();
+  if (!silent) {
+    setStatus('Refreshing skills...');
+  }
+  try {
+    const result = await window.assistantAPI.getSkillsState({ includeCurated });
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Failed to load skills state');
+    }
+    state.codexHome = String(result.codexHome || state.codexHome || '');
+    state.codexSkillsDir = String(result.skillsRoot || state.codexSkillsDir || '');
+    state.skillsInstallerAvailable = Boolean(result.installerAvailable);
+    state.skillsCreatorAvailable = Boolean(result.creatorAvailable);
+    state.skillsInstalled = Array.isArray(result.installedSkills) ? result.installedSkills : [];
+    if (Array.isArray(result.curatedSkills)) {
+      state.skillsCurated = result.curatedSkills;
+    }
+    state.skillsCuratedError = String(result.curatedError || '');
+    if (skillCreatePathInput && !skillCreatePathInput.value.trim()) {
+      skillCreatePathInput.value = state.codexSkillsDir || '';
+    }
+    updateSkillsRuntimeNote();
+    renderInstalledSkillsList();
+    renderSkillsCuratedOptions();
+    if (!silent) {
+      setSkillsStatus('Skills refreshed.');
+      setStatus('Skills refreshed');
+    }
+    return true;
+  } catch (error) {
+    const message = String(error.message || error);
+    updateSkillsRuntimeNote();
+    setSkillsStatus(`Skills refresh failed: ${message}`, true);
+    if (!silent) {
+      setStatus(`Skills refresh failed: ${message}`, true);
+    }
+    return false;
+  } finally {
+    state.skillsBusy = false;
+    updateRuntimeUiState();
+  }
+}
+
+async function installSelectedCuratedSkill() {
+  if (!window.assistantAPI?.installCuratedSkill) {
+    return;
+  }
+  const skillName = String(skillsCuratedSelect?.value || '').trim();
+  if (!skillName) {
+    setSkillsStatus('Select one curated skill first.', true);
+    return;
+  }
+  state.skillsBusy = true;
+  updateRuntimeUiState();
+  setStatus(`Installing curated skill: ${skillName}...`);
+  setSkillsStatus(`Installing ${skillName}...`);
+  try {
+    const result = await window.assistantAPI.installCuratedSkill({ skillName });
+    if (!result?.ok) {
+      throw new Error(result?.error || `Install failed: ${skillName}`);
+    }
+    if (Array.isArray(result.installedSkills)) {
+      state.skillsInstalled = result.installedSkills;
+    }
+    await refreshSkillsState({ includeCurated: true, silent: true });
+    appendMessage('system', `Skill installed: ${skillName}. Restart Codex to pick up new skills.`);
+    setSkillsStatus(`Installed ${skillName}. Restart Codex to pick up new skills.`);
+    setStatus(`Skill installed: ${skillName}`);
+  } catch (error) {
+    const message = String(error.message || error);
+    setSkillsStatus(`Install failed: ${message}`, true);
+    setStatus(`Skill install failed: ${message}`, true);
+  } finally {
+    state.skillsBusy = false;
+    updateRuntimeUiState();
+  }
+}
+
+async function installGithubSkillFromInputs() {
+  if (!window.assistantAPI?.installSkillFromGithub) {
+    return;
+  }
+  const source = String(skillsGithubUrlInput?.value || '').trim();
+  const pathHint = String(skillsGithubPathInput?.value || '').trim();
+  if (!source) {
+    setSkillsStatus('GitHub URL or owner/repo is required.', true);
+    return;
+  }
+  const payload = {};
+  if (/^https?:\/\//i.test(source)) {
+    payload.url = source;
+    if (pathHint) {
+      payload.path = pathHint;
+    }
+  } else {
+    payload.repo = source;
+    payload.path = pathHint;
+  }
+
+  state.skillsBusy = true;
+  updateRuntimeUiState();
+  setStatus('Installing skill from GitHub...');
+  setSkillsStatus('Installing from GitHub...');
+  try {
+    const result = await window.assistantAPI.installSkillFromGithub(payload);
+    if (!result?.ok) {
+      throw new Error(result?.error || 'GitHub install failed');
+    }
+    if (Array.isArray(result.installedSkills)) {
+      state.skillsInstalled = result.installedSkills;
+    }
+    await refreshSkillsState({ includeCurated: true, silent: true });
+    appendMessage('system', 'GitHub skill installed. Restart Codex to pick up new skills.');
+    setSkillsStatus('GitHub skill installed. Restart Codex to pick up new skills.');
+    setStatus('GitHub skill installed');
+    skillsGithubUrlInput.value = '';
+    skillsGithubPathInput.value = '';
+  } catch (error) {
+    const message = String(error.message || error);
+    setSkillsStatus(`GitHub install failed: ${message}`, true);
+    setStatus(`GitHub install failed: ${message}`, true);
+  } finally {
+    state.skillsBusy = false;
+    updateRuntimeUiState();
+  }
+}
+
+async function createSkillFromInputs() {
+  if (!window.assistantAPI?.createSkill) {
+    return;
+  }
+  const skillName = String(skillCreateNameInput?.value || '').trim();
+  if (!skillName) {
+    setSkillsStatus('Skill name is required.', true);
+    return;
+  }
+  const payload = {
+    skillName,
+    outputRoot: String(skillCreatePathInput?.value || '').trim(),
+    resources: String(skillCreateResourcesInput?.value || '').trim(),
+    displayName: String(skillCreateDisplayNameInput?.value || '').trim(),
+    shortDescription: String(skillCreateShortDescriptionInput?.value || '').trim(),
+    defaultPrompt: String(skillCreateDefaultPromptInput?.value || '').trim(),
+  };
+  state.skillsBusy = true;
+  updateRuntimeUiState();
+  setStatus(`Creating skill: ${skillName}...`);
+  setSkillsStatus(`Creating ${skillName}...`);
+  try {
+    const result = await window.assistantAPI.createSkill(payload);
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Skill create failed');
+    }
+    if (Array.isArray(result.installedSkills)) {
+      state.skillsInstalled = result.installedSkills;
+    }
+    await refreshSkillsState({ includeCurated: true, silent: true });
+    if (result?.name) {
+      selectSkillByIdentity(result.name);
+      renderInstalledSkillsList();
+    } else if (result?.path) {
+      selectSkillByIdentity(result.path);
+      renderInstalledSkillsList();
+    }
+    const validationText = result?.validation?.stdout ? ` Validation: ${result.validation.stdout}` : '';
+    appendMessage('system', `Skill created: ${result.name || skillName}.${validationText}`.trim());
+    setSkillsStatus(`Skill created: ${result.name || skillName}.${validationText}`.trim());
+    setStatus(`Skill created: ${result.name || skillName}`);
+    skillCreateNameInput.value = '';
+    skillCreateDisplayNameInput.value = '';
+    skillCreateShortDescriptionInput.value = '';
+    skillCreateDefaultPromptInput.value = '';
+  } catch (error) {
+    const message = String(error.message || error);
+    setSkillsStatus(`Skill create failed: ${message}`, true);
+    setStatus(`Skill create failed: ${message}`, true);
+  } finally {
+    state.skillsBusy = false;
+    updateRuntimeUiState();
+  }
+}
+
+async function validateSelectedSkill() {
+  if (!window.assistantAPI?.validateSkill) {
+    return;
+  }
+  const skillPath = String(state.selectedSkillPath || '').trim();
+  if (!skillPath) {
+    setSkillsStatus('Select a skill first.', true);
+    return;
+  }
+  state.skillsBusy = true;
+  updateRuntimeUiState();
+  setStatus('Validating selected skill...');
+  try {
+    const result = await window.assistantAPI.validateSkill({ skillPath });
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Skill validation failed');
+    }
+    const text = String(result.stdout || 'Skill is valid.');
+    appendMessage('system', `Skill validation: ${text}`);
+    setSkillsStatus(`Validation passed: ${text}`);
+    setStatus('Skill validation passed');
+  } catch (error) {
+    const message = String(error.message || error);
+    setSkillsStatus(`Validation failed: ${message}`, true);
+    setStatus(`Skill validation failed: ${message}`, true);
+  } finally {
+    state.skillsBusy = false;
+    updateRuntimeUiState();
+  }
+}
+
+async function openSelectedSkillPath() {
+  if (!window.assistantAPI?.openPath) {
+    return;
+  }
+  const skillPath = String(state.selectedSkillPath || '').trim() || String(state.codexSkillsDir || '').trim();
+  if (!skillPath) {
+    setSkillsStatus('No skill path available.', true);
+    return;
+  }
+  try {
+    const result = await window.assistantAPI.openPath(skillPath);
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Open path failed');
+    }
+    setSkillsStatus(`Opened: ${result.path || skillPath}`);
+  } catch (error) {
+    setSkillsStatus(`Open failed: ${String(error.message || error)}`, true);
+  }
+}
+
+async function openSkillsRootPath() {
+  if (!window.assistantAPI?.openPath) {
+    return;
+  }
+  const targetPath = String(state.codexSkillsDir || '').trim() || String(state.codexHome || '').trim();
+  if (!targetPath) {
+    setSkillsStatus('Skills root path is unavailable.', true);
+    return;
+  }
+  try {
+    const result = await window.assistantAPI.openPath(targetPath);
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Open path failed');
+    }
+    setSkillsStatus(`Opened skills root: ${result.path || targetPath}`);
+  } catch (error) {
+    setSkillsStatus(`Open root failed: ${String(error.message || error)}`, true);
+  }
+}
+
+function setAgentsWorkflowNote(message, isError = false) {
+  if (!agentsWorkflowNote) {
+    return;
+  }
+  agentsWorkflowNote.textContent = String(message || '');
+  agentsWorkflowNote.dataset.toneError = isError ? '1' : '0';
+  agentsWorkflowNote.style.color = toneColor('note', isError);
+}
+
+function getSelectedAgent() {
+  return state.agents.find((item) => String(item.id || '') === String(state.selectedAgentId || '')) || null;
+}
+
+function getSelectedWorkflow() {
+  return state.workflows.find((item) => String(item.id || '') === String(state.selectedWorkflowId || '')) || null;
+}
+
+function getAgentById(agentId) {
+  const id = String(agentId || '').trim();
+  if (!id) {
+    return null;
+  }
+  return state.agents.find((item) => String(item.id || '') === id) || null;
+}
+
+function providerFromChannelId(channelId) {
+  const channel = normalizeChannelId(channelId);
+  if (channel === 'cli:claude') {
+    return 'claude';
+  }
+  if (channel === 'api') {
+    return String(state.provider || '').toLowerCase() === 'claude' ? 'claude' : 'codex';
+  }
+  return 'codex';
+}
+
+function buildWorkflowGoal(workflow, agent) {
+  const workflowGoal = String(workflow?.goal || '').trim();
+  const composerText = String(inputEl?.value || '').trim();
+  const now = new Date();
+  const dateText = now.toISOString().slice(0, 10);
+  const timeText = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(
+    now.getSeconds()
+  ).padStart(2, '0')}`;
+  const skills = [
+    ...parseCsvInput(agent?.skills || '', 24),
+    ...parseCsvInput(workflow?.skills || '', 24),
+  ];
+  const dedupedSkills = [];
+  for (const item of skills) {
+    if (!dedupedSkills.includes(item)) {
+      dedupedSkills.push(item);
+    }
+  }
+
+  let rendered = workflowGoal
+    .replace(/\{\{\s*input\s*\}\}/gi, composerText)
+    .replace(/\{\{\s*date\s*\}\}/gi, dateText)
+    .replace(/\{\{\s*time\s*\}\}/gi, timeText)
+    .replace(/\{\{\s*datetime\s*\}\}/gi, `${dateText} ${timeText}`)
+    .replace(/\{\{\s*channel\s*\}\}/gi, channelLabel(state.activeChannelId || ''))
+    .replace(/\{\{\s*provider\s*\}\}/gi, providerLabel(state.provider || 'codex'));
+
+  if (!rendered && composerText) {
+    rendered = composerText;
+  } else if (rendered && composerText && !/\{\{\s*input\s*\}\}/i.test(workflowGoal)) {
+    rendered = `${rendered}\n\nExtra user request:\n${composerText}`;
+  }
+
+  const sections = [rendered.trim()];
+  const agentPrompt = String(agent?.prompt || '').trim();
+  if (agentPrompt) {
+    sections.push(`Execution role:\n${agentPrompt}`);
+  }
+  if (dedupedSkills.length > 0) {
+    sections.push(`Skill hints:\n${dedupedSkills.join(', ')}`);
+  }
+  const finalGoal = sections.filter(Boolean).join('\n\n').trim();
+  return {
+    goal: finalGoal,
+    skills: dedupedSkills,
+  };
+}
+
+async function applyWorkflowChannelPreference(agent) {
+  const preferred = normalizeChannelId(agent?.channelId || '');
+  if (!preferred) {
+    return true;
+  }
+  const available = state.channels.some((item) => normalizeChannelId(item?.id) === preferred);
+  if (!available) {
+    setAgentsWorkflowNote(`Preferred channel unavailable for agent: ${channelLabel(preferred)}. Using current channel.`);
+    return true;
+  }
+  if (normalizeChannelId(state.activeChannelId) === preferred) {
+    return true;
+  }
+  channelSelect.value = preferred;
+  return switchChannel();
+}
+
+function renderAgentOptions() {
+  if (!agentSelect || !workflowAgentSelect) {
+    return;
+  }
+  const agents = Array.isArray(state.agents) ? state.agents : [];
+  const previousAgent = String(state.selectedAgentId || '');
+  const previousWorkflowAgent = String(workflowAgentSelect.value || '');
+
+  agentSelect.innerHTML = '';
+  const draftOption = document.createElement('option');
+  draftOption.value = '';
+  draftOption.textContent = 'New agent...';
+  agentSelect.appendChild(draftOption);
+  for (const agent of agents) {
+    const option = document.createElement('option');
+    option.value = String(agent.id || '');
+    option.textContent = String(agent.name || option.value);
+    agentSelect.appendChild(option);
+  }
+  const ids = agents.map((item) => String(item.id || ''));
+  state.selectedAgentId = ids.includes(previousAgent) ? previousAgent : '';
+  agentSelect.value = state.selectedAgentId;
+
+  workflowAgentSelect.innerHTML = '';
+  const noneOption = document.createElement('option');
+  noneOption.value = '';
+  noneOption.textContent = 'No agent';
+  workflowAgentSelect.appendChild(noneOption);
+  for (const agent of agents) {
+    const option = document.createElement('option');
+    option.value = String(agent.id || '');
+    option.textContent = String(agent.name || option.value);
+    workflowAgentSelect.appendChild(option);
+  }
+  const agentIds = agents.map((item) => String(item.id || ''));
+  workflowAgentSelect.value = agentIds.includes(previousWorkflowAgent) ? previousWorkflowAgent : '';
+}
+
+function renderWorkflowOptions() {
+  if (!workflowSelect) {
+    return;
+  }
+  const workflows = Array.isArray(state.workflows) ? state.workflows : [];
+  const previous = String(state.selectedWorkflowId || '');
+  workflowSelect.innerHTML = '';
+  const draftOption = document.createElement('option');
+  draftOption.value = '';
+  draftOption.textContent = 'New workflow...';
+  workflowSelect.appendChild(draftOption);
+  for (const workflow of workflows) {
+    const option = document.createElement('option');
+    option.value = String(workflow.id || '');
+    option.textContent = String(workflow.name || option.value);
+    workflowSelect.appendChild(option);
+  }
+  const ids = workflows.map((item) => String(item.id || ''));
+  state.selectedWorkflowId = ids.includes(previous) ? previous : '';
+  workflowSelect.value = state.selectedWorkflowId;
+}
+
+function renderAgentEditor() {
+  const agent = getSelectedAgent();
+  if (!agent) {
+    agentNameInput.value = '';
+    agentChannelSelect.value = '';
+    agentSkillsInput.value = '';
+    agentPromptInput.value = '';
+    agentEnabledInput.checked = true;
+    return;
+  }
+  agentNameInput.value = String(agent.name || '');
+  agentChannelSelect.value = String(agent.channelId || '');
+  agentSkillsInput.value = joinCsv(agent.skills);
+  agentPromptInput.value = String(agent.prompt || '');
+  agentEnabledInput.checked = agent.enabled !== false;
+}
+
+function renderWorkflowEditor() {
+  const workflow = getSelectedWorkflow();
+  if (!workflow) {
+    workflowNameInput.value = '';
+    workflowModeSelect.value = 'auto';
+    workflowSkillsInput.value = '';
+    workflowGoalInput.value = '';
+    workflowEnabledInput.checked = true;
+    workflowAgentSelect.value = '';
+    return;
+  }
+  workflowNameInput.value = String(workflow.name || '');
+  workflowModeSelect.value = String(workflow.mode || 'auto');
+  workflowSkillsInput.value = joinCsv(workflow.skills);
+  workflowGoalInput.value = String(workflow.goal || '');
+  workflowEnabledInput.checked = workflow.enabled !== false;
+  workflowAgentSelect.value = String(workflow.agentId || '');
+}
+
+function renderAgentsWorkflows() {
+  renderAgentOptions();
+  renderWorkflowOptions();
+  renderAgentEditor();
+  renderWorkflowEditor();
+  if (agentsStoreNote) {
+    const lines = [
+      `Store: ${state.agentsStorePath || '-'}`,
+      `Agents: ${state.agents.length} · Workflows: ${state.workflows.length}`,
+    ];
+    agentsStoreNote.textContent = lines.join('\n');
+  }
+}
+
+async function refreshAgentsWorkflows({ silent = false } = {}) {
+  if (!window.assistantAPI?.getAgentsWorkflows || state.agentsBusy) {
+    return false;
+  }
+  state.agentsBusy = true;
+  updateRuntimeUiState();
+  try {
+    const result = await window.assistantAPI.getAgentsWorkflows();
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Failed to load agents/workflows');
+    }
+    const store = result.store && typeof result.store === 'object' ? result.store : {};
+    state.agentsStorePath = String(result.filePath || '');
+    state.agents = Array.isArray(store.agents) ? store.agents : [];
+    state.workflows = Array.isArray(store.workflows) ? store.workflows : [];
+    renderAgentsWorkflows();
+    if (!silent) {
+      setAgentsWorkflowNote('Agents/workflows refreshed.');
+      setStatus('Agents/workflows refreshed');
+    }
+    return true;
+  } catch (error) {
+    const message = String(error.message || error);
+    setAgentsWorkflowNote(`Load failed: ${message}`, true);
+    if (!silent) {
+      setStatus(`Agents/workflows load failed: ${message}`, true);
+    }
+    return false;
+  } finally {
+    state.agentsBusy = false;
+    updateRuntimeUiState();
+  }
+}
+
+function readAgentForm() {
+  return {
+    id: String(state.selectedAgentId || '').trim(),
+    name: String(agentNameInput?.value || '').trim(),
+    channelId: String(agentChannelSelect?.value || '').trim(),
+    skills: parseCsvInput(agentSkillsInput?.value || '', 24),
+    prompt: String(agentPromptInput?.value || '').trim(),
+    enabled: Boolean(agentEnabledInput?.checked),
+  };
+}
+
+function readWorkflowForm() {
+  return {
+    id: String(state.selectedWorkflowId || '').trim(),
+    name: String(workflowNameInput?.value || '').trim(),
+    mode: String(workflowModeSelect?.value || 'auto').trim().toLowerCase(),
+    skills: parseCsvInput(workflowSkillsInput?.value || '', 32),
+    goal: String(workflowGoalInput?.value || '').trim(),
+    agentId: String(workflowAgentSelect?.value || '').trim(),
+    enabled: Boolean(workflowEnabledInput?.checked),
+  };
+}
+
+async function saveAgentFromForm() {
+  if (!window.assistantAPI?.saveAgent) {
+    return;
+  }
+  const agent = readAgentForm();
+  if (!agent.name) {
+    setAgentsWorkflowNote('Agent name is required.', true);
+    return;
+  }
+  state.agentsBusy = true;
+  updateRuntimeUiState();
+  try {
+    const result = await window.assistantAPI.saveAgent({ agent });
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Save agent failed');
+    }
+    state.agentsStorePath = String(result.filePath || state.agentsStorePath || '');
+    state.agents = Array.isArray(result?.store?.agents) ? result.store.agents : state.agents;
+    state.workflows = Array.isArray(result?.store?.workflows) ? result.store.workflows : state.workflows;
+    state.selectedAgentId = String(result?.agent?.id || state.selectedAgentId || '');
+    renderAgentsWorkflows();
+    setAgentsWorkflowNote(`Agent saved: ${agent.name}`);
+    setStatus(`Agent saved: ${agent.name}`);
+  } catch (error) {
+    const message = String(error.message || error);
+    setAgentsWorkflowNote(`Save agent failed: ${message}`, true);
+    setStatus(`Save agent failed: ${message}`, true);
+  } finally {
+    state.agentsBusy = false;
+    updateRuntimeUiState();
+  }
+}
+
+async function deleteSelectedAgent() {
+  if (!window.assistantAPI?.deleteAgent) {
+    return;
+  }
+  const agentId = String(state.selectedAgentId || '').trim();
+  if (!agentId) {
+    setAgentsWorkflowNote('Select an agent first.', true);
+    return;
+  }
+  state.agentsBusy = true;
+  updateRuntimeUiState();
+  try {
+    const result = await window.assistantAPI.deleteAgent({ agentId });
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Delete agent failed');
+    }
+    state.agentsStorePath = String(result.filePath || state.agentsStorePath || '');
+    state.agents = Array.isArray(result?.store?.agents) ? result.store.agents : [];
+    state.workflows = Array.isArray(result?.store?.workflows) ? result.store.workflows : [];
+    state.selectedAgentId = '';
+    renderAgentsWorkflows();
+    setAgentsWorkflowNote('Agent deleted.');
+    setStatus('Agent deleted');
+  } catch (error) {
+    const message = String(error.message || error);
+    setAgentsWorkflowNote(`Delete agent failed: ${message}`, true);
+    setStatus(`Delete agent failed: ${message}`, true);
+  } finally {
+    state.agentsBusy = false;
+    updateRuntimeUiState();
+  }
+}
+
+function newAgentDraft() {
+  state.selectedAgentId = '';
+  renderAgentsWorkflows();
+  agentNameInput.focus();
+  setAgentsWorkflowNote('New agent draft ready.');
+}
+
+async function saveWorkflowFromForm() {
+  if (!window.assistantAPI?.saveWorkflow) {
+    return;
+  }
+  const workflow = readWorkflowForm();
+  if (!workflow.name) {
+    setAgentsWorkflowNote('Workflow name is required.', true);
+    return;
+  }
+  if (!workflow.goal) {
+    setAgentsWorkflowNote('Workflow goal/template is required.', true);
+    return;
+  }
+  state.agentsBusy = true;
+  updateRuntimeUiState();
+  try {
+    const result = await window.assistantAPI.saveWorkflow({ workflow });
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Save workflow failed');
+    }
+    state.agentsStorePath = String(result.filePath || state.agentsStorePath || '');
+    state.agents = Array.isArray(result?.store?.agents) ? result.store.agents : state.agents;
+    state.workflows = Array.isArray(result?.store?.workflows) ? result.store.workflows : state.workflows;
+    state.selectedWorkflowId = String(result?.workflow?.id || state.selectedWorkflowId || '');
+    renderAgentsWorkflows();
+    setAgentsWorkflowNote(`Workflow saved: ${workflow.name}`);
+    setStatus(`Workflow saved: ${workflow.name}`);
+  } catch (error) {
+    const message = String(error.message || error);
+    setAgentsWorkflowNote(`Save workflow failed: ${message}`, true);
+    setStatus(`Save workflow failed: ${message}`, true);
+  } finally {
+    state.agentsBusy = false;
+    updateRuntimeUiState();
+  }
+}
+
+async function deleteSelectedWorkflow() {
+  if (!window.assistantAPI?.deleteWorkflow) {
+    return;
+  }
+  const workflowId = String(state.selectedWorkflowId || '').trim();
+  if (!workflowId) {
+    setAgentsWorkflowNote('Select a workflow first.', true);
+    return;
+  }
+  state.agentsBusy = true;
+  updateRuntimeUiState();
+  try {
+    const result = await window.assistantAPI.deleteWorkflow({ workflowId });
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Delete workflow failed');
+    }
+    state.agentsStorePath = String(result.filePath || state.agentsStorePath || '');
+    state.agents = Array.isArray(result?.store?.agents) ? result.store.agents : state.agents;
+    state.workflows = Array.isArray(result?.store?.workflows) ? result.store.workflows : [];
+    state.selectedWorkflowId = '';
+    renderAgentsWorkflows();
+    setAgentsWorkflowNote('Workflow deleted.');
+    setStatus('Workflow deleted');
+  } catch (error) {
+    const message = String(error.message || error);
+    setAgentsWorkflowNote(`Delete workflow failed: ${message}`, true);
+    setStatus(`Delete workflow failed: ${message}`, true);
+  } finally {
+    state.agentsBusy = false;
+    updateRuntimeUiState();
+  }
+}
+
+function newWorkflowDraft() {
+  state.selectedWorkflowId = '';
+  renderAgentsWorkflows();
+  workflowNameInput.focus();
+  setAgentsWorkflowNote('New workflow draft ready.');
+}
+
+function applySelectedWorkflowToInput() {
+  const workflow = getSelectedWorkflow();
+  if (!workflow) {
+    setAgentsWorkflowNote('Select a workflow first.', true);
+    return false;
+  }
+  const agent = getAgentById(workflow.agentId);
+  const rendered = buildWorkflowGoal(workflow, agent);
+  if (!rendered.goal) {
+    setAgentsWorkflowNote('Workflow goal is empty. Fill workflow goal or input text first.', true);
+    return false;
+  }
+  inputEl.value = rendered.goal;
+  autoResizeInput();
+  setAgentsWorkflowNote(`Workflow applied to input: ${workflow.name}`);
+  setStatus(`Workflow applied: ${workflow.name}`);
+  inputEl.focus();
+  return true;
+}
+
+async function runSelectedWorkflow() {
+  const workflow = getSelectedWorkflow();
+  if (!workflow) {
+    setAgentsWorkflowNote('Select a workflow first.', true);
+    return false;
+  }
+  if (workflow.enabled === false) {
+    setAgentsWorkflowNote(`Workflow "${workflow.name}" is disabled. Enable it first.`, true);
+    return false;
+  }
+  const agent = getAgentById(workflow.agentId);
+  if (agent && agent.enabled === false) {
+    setAgentsWorkflowNote(`Agent "${agent.name}" is disabled. Enable it first.`, true);
+    return false;
+  }
+
+  const channelApplied = await applyWorkflowChannelPreference(agent);
+  if (!channelApplied) {
+    setAgentsWorkflowNote('Unable to apply agent preferred channel.', true);
+    return false;
+  }
+
+  const rendered = buildWorkflowGoal(workflow, agent);
+  if (!rendered.goal) {
+    setAgentsWorkflowNote('Workflow goal is empty. Fill workflow goal or input text first.', true);
+    return false;
+  }
+  const provider = providerFromChannelId(agent?.channelId || state.activeChannelId);
+  const title = `workflow "${workflow.name}"`;
+  setAgentsWorkflowNote(`Running ${title}...`);
+  if (state.settingsOpen) {
+    closeSettingsModal();
+  }
+  await runAutomation({
+    goal: rendered.goal,
+    provider,
+    title,
+    workflowId: String(workflow.id || ''),
+    workflowName: String(workflow.name || ''),
+    agentId: String(agent?.id || ''),
+    agentName: String(agent?.name || ''),
+    source: 'workflow',
+  });
+  return true;
+}
+
 function normalizeLiveWatchIntervalMs(rawValue) {
   const n = Number(rawValue);
   if (!Number.isFinite(n)) {
@@ -542,6 +1584,13 @@ function openSettingsModal() {
   apiModelInput.value = state.apiConfig.model;
   apiKeyInput.value = '';
   syncLiveWatchSettingsInputs();
+  if (skillCreatePathInput && !skillCreatePathInput.value.trim()) {
+    skillCreatePathInput.value = state.codexSkillsDir || '';
+  }
+  updateSkillsRuntimeNote();
+  renderInstalledSkillsList();
+  renderSkillsCuratedOptions();
+  renderAgentsWorkflows();
   setSettingsTab(state.settingsTab || 'api', { focus: true });
 }
 
@@ -686,6 +1735,8 @@ function updateRuntimeUiState() {
   settingsBtn.disabled = busy;
   const settingsFieldsDisabled = busy || !state.settingsOpen;
   const permissionFieldsDisabled = settingsFieldsDisabled || state.permissionsLoading;
+  const skillsFieldsDisabled = settingsFieldsDisabled || state.skillsBusy;
+  const agentsFieldsDisabled = settingsFieldsDisabled || state.agentsBusy;
   settingsTabButtons.forEach((button) => {
     button.disabled = settingsFieldsDisabled;
   });
@@ -694,6 +1745,12 @@ function updateRuntimeUiState() {
   }
   if (defaultChannelSaveBtn) {
     defaultChannelSaveBtn.disabled = settingsFieldsDisabled;
+  }
+  if (uiThemeSelect) {
+    uiThemeSelect.disabled = settingsFieldsDisabled;
+  }
+  if (uiThemeSaveBtn) {
+    uiThemeSaveBtn.disabled = settingsFieldsDisabled;
   }
   apiTemplateSelect.disabled = settingsFieldsDisabled;
   apiTemplateFillBtn.disabled = settingsFieldsDisabled;
@@ -746,6 +1803,120 @@ function updateRuntimeUiState() {
   if (permissionOpenAutomationBtn) {
     permissionOpenAutomationBtn.disabled = permissionFieldsDisabled || !permissionItems.automation?.canOpenSettings;
   }
+  if (skillsRefreshBtn) {
+    skillsRefreshBtn.disabled = skillsFieldsDisabled;
+  }
+  if (skillsOpenRootBtn) {
+    skillsOpenRootBtn.disabled = skillsFieldsDisabled;
+  }
+  if (skillsCuratedSelect) {
+    skillsCuratedSelect.disabled = skillsFieldsDisabled;
+  }
+  if (skillsCuratedRefreshBtn) {
+    skillsCuratedRefreshBtn.disabled = skillsFieldsDisabled;
+  }
+  if (skillsInstallCuratedBtn) {
+    skillsInstallCuratedBtn.disabled = skillsFieldsDisabled;
+  }
+  if (skillsGithubUrlInput) {
+    skillsGithubUrlInput.disabled = skillsFieldsDisabled;
+  }
+  if (skillsGithubPathInput) {
+    skillsGithubPathInput.disabled = skillsFieldsDisabled;
+  }
+  if (skillsInstallGithubBtn) {
+    skillsInstallGithubBtn.disabled = skillsFieldsDisabled;
+  }
+  if (skillCreateNameInput) {
+    skillCreateNameInput.disabled = skillsFieldsDisabled;
+  }
+  if (skillCreatePathInput) {
+    skillCreatePathInput.disabled = skillsFieldsDisabled;
+  }
+  if (skillCreateResourcesInput) {
+    skillCreateResourcesInput.disabled = skillsFieldsDisabled;
+  }
+  if (skillCreateDisplayNameInput) {
+    skillCreateDisplayNameInput.disabled = skillsFieldsDisabled;
+  }
+  if (skillCreateShortDescriptionInput) {
+    skillCreateShortDescriptionInput.disabled = skillsFieldsDisabled;
+  }
+  if (skillCreateDefaultPromptInput) {
+    skillCreateDefaultPromptInput.disabled = skillsFieldsDisabled;
+  }
+  if (skillCreateBtn) {
+    skillCreateBtn.disabled = skillsFieldsDisabled;
+  }
+  if (skillValidateBtn) {
+    skillValidateBtn.disabled = skillsFieldsDisabled || !state.selectedSkillPath;
+  }
+  if (skillOpenSelectedBtn) {
+    skillOpenSelectedBtn.disabled = skillsFieldsDisabled || !(state.selectedSkillPath || state.codexSkillsDir);
+  }
+  if (agentSelect) {
+    agentSelect.disabled = agentsFieldsDisabled;
+  }
+  if (agentNewBtn) {
+    agentNewBtn.disabled = agentsFieldsDisabled;
+  }
+  if (agentDeleteBtn) {
+    agentDeleteBtn.disabled = agentsFieldsDisabled || !state.selectedAgentId;
+  }
+  if (agentNameInput) {
+    agentNameInput.disabled = agentsFieldsDisabled;
+  }
+  if (agentChannelSelect) {
+    agentChannelSelect.disabled = agentsFieldsDisabled;
+  }
+  if (agentSkillsInput) {
+    agentSkillsInput.disabled = agentsFieldsDisabled;
+  }
+  if (agentPromptInput) {
+    agentPromptInput.disabled = agentsFieldsDisabled;
+  }
+  if (agentEnabledInput) {
+    agentEnabledInput.disabled = agentsFieldsDisabled;
+  }
+  if (agentSaveBtn) {
+    agentSaveBtn.disabled = agentsFieldsDisabled;
+  }
+  if (workflowSelect) {
+    workflowSelect.disabled = agentsFieldsDisabled;
+  }
+  if (workflowNewBtn) {
+    workflowNewBtn.disabled = agentsFieldsDisabled;
+  }
+  if (workflowDeleteBtn) {
+    workflowDeleteBtn.disabled = agentsFieldsDisabled || !state.selectedWorkflowId;
+  }
+  if (workflowToInputBtn) {
+    workflowToInputBtn.disabled = agentsFieldsDisabled || !state.selectedWorkflowId;
+  }
+  if (workflowRunBtn) {
+    workflowRunBtn.disabled = agentsFieldsDisabled || !state.selectedWorkflowId || busy || !hasChannel;
+  }
+  if (workflowNameInput) {
+    workflowNameInput.disabled = agentsFieldsDisabled;
+  }
+  if (workflowAgentSelect) {
+    workflowAgentSelect.disabled = agentsFieldsDisabled;
+  }
+  if (workflowModeSelect) {
+    workflowModeSelect.disabled = agentsFieldsDisabled;
+  }
+  if (workflowSkillsInput) {
+    workflowSkillsInput.disabled = agentsFieldsDisabled;
+  }
+  if (workflowGoalInput) {
+    workflowGoalInput.disabled = agentsFieldsDisabled;
+  }
+  if (workflowEnabledInput) {
+    workflowEnabledInput.disabled = agentsFieldsDisabled;
+  }
+  if (workflowSaveBtn) {
+    workflowSaveBtn.disabled = agentsFieldsDisabled;
+  }
   settingsCloseBtn.disabled = busy;
   if (!state.sending) {
     sendBtn.disabled = !hasChannel;
@@ -771,7 +1942,8 @@ function updateRuntimeUiState() {
 
 function setStatus(message, isError = false) {
   statusLine.textContent = message;
-  statusLine.style.color = isError ? '#ffb7b7' : '#90a9c5';
+  statusLine.dataset.toneError = isError ? '1' : '0';
+  statusLine.style.color = toneColor('status', isError);
 }
 
 function formatMessageTime(date = new Date()) {
@@ -1206,7 +2378,7 @@ async function pauseSendMessage() {
   }
 }
 
-async function runAutomation() {
+async function runAutomation(options = {}) {
   if (state.automationBusy) {
     return;
   }
@@ -1216,11 +2388,17 @@ async function runAutomation() {
     return;
   }
 
-  const goal = inputEl.value.trim();
+  const providedGoal = String(options?.goal || '').trim();
+  const useComposerGoal = !providedGoal;
+  const goal = useComposerGoal ? inputEl.value.trim() : providedGoal;
   if (!goal) {
     setStatus('Auto goal cannot be empty. Type goal in message box first.', true);
     return;
   }
+
+  const providerOverride = String(options?.provider || '').trim().toLowerCase();
+  const provider = providerOverride === 'claude' || providerOverride === 'codex' ? providerOverride : state.provider;
+  const runTitle = String(options?.title || '').trim();
 
   state.automationBusy = true;
   state.automationProgressEvents = 0;
@@ -1233,14 +2411,26 @@ async function runAutomation() {
   workdirPickBtn.disabled = true;
   workdirApplyBtn.disabled = true;
   updateRuntimeUiState();
-  setStatus(`Running automation with ${state.provider}...`);
-  inputEl.value = '';
-  autoResizeInput();
+  setStatus(
+    runTitle ? `Running ${runTitle} with ${providerLabel(provider)}...` : `Running automation with ${providerLabel(provider)}...`
+  );
+  if (useComposerGoal) {
+    inputEl.value = '';
+    autoResizeInput();
+  }
+  if (runTitle) {
+    appendMessage('system', `Starting ${runTitle}...`);
+  }
 
   try {
     const result = await window.assistantAPI.runAutomation({
       goal,
-      provider: state.provider,
+      provider,
+      workflowId: String(options?.workflowId || ''),
+      workflowName: String(options?.workflowName || ''),
+      agentId: String(options?.agentId || ''),
+      agentName: String(options?.agentName || ''),
+      source: String(options?.source || ''),
     });
 
     if (!result?.ok) {
@@ -1269,14 +2459,14 @@ async function runAutomation() {
       }
     }
 
-    setStatus('Automation completed');
+    setStatus(runTitle ? `${runTitle} completed` : 'Automation completed');
   } catch (error) {
     const message = String(error.message || error);
     const paused = /paused by user/i.test(message);
     if (state.automationProgressEvents === 0) {
       appendMessage('system', paused ? 'Automation paused.' : `Automation error: ${message}`);
     }
-    setStatus(paused ? 'Automation paused' : 'Automation failed', !paused);
+    setStatus(paused ? 'Automation paused' : runTitle ? `${runTitle} failed` : 'Automation failed', !paused);
   } finally {
     state.automationBusy = false;
     state.pausingAutomation = false;
@@ -1475,7 +2665,10 @@ function handleAutomationStatus(update) {
   state.automationProgressEvents += 1;
 
   if (phase === 'start') {
-    appendMessage('system', `Automation started:\n${String(update.goal || '')}`);
+    const workflowName = String(update.workflowName || '').trim();
+    const agentName = String(update.agentName || '').trim();
+    const prefix = workflowName ? `Automation started (${workflowName}${agentName ? ` / ${agentName}` : ''}):` : 'Automation started:';
+    appendMessage('system', `${prefix}\n${String(update.goal || '')}`);
     setStatus(`Automation started (${String(update.provider || state.provider)})`);
     return;
   }
@@ -1705,6 +2898,9 @@ async function refreshConfig({ setReadyStatus = false } = {}) {
     state.runtimeHealth = normalizeRuntimeHealth(config.runtimeHealth);
     renderPermissionPanel();
     applyLiveWatchStateFromPayload(config.liveWatch || {});
+    state.codexHome = String(config.codexHome || state.codexHome || '');
+    state.codexSkillsDir = String(config.codexSkillsDir || state.codexSkillsDir || '');
+    applyUiTheme(config.uiTheme || state.uiTheme);
     apiTemplateSelect.value = state.apiConfig.template;
     apiBaseInput.value = state.apiConfig.baseUrl;
     apiModelInput.value = state.apiConfig.model;
@@ -1713,6 +2909,10 @@ async function refreshConfig({ setReadyStatus = false } = {}) {
     state.workdir = config.workdir || '';
     workdirInput.value = state.workdir;
     workdirInput.title = state.workdir;
+    if (skillCreatePathInput && !skillCreatePathInput.value.trim()) {
+      skillCreatePathInput.value = state.codexSkillsDir || '';
+    }
+    updateSkillsRuntimeNote();
     updateRuntimeUiState();
     if (setReadyStatus) {
       if (state.channels.length === 0) {
@@ -1890,6 +3090,38 @@ async function saveDefaultChannel() {
   }
 }
 
+async function saveUiTheme() {
+  if (!uiThemeSelect || !uiThemeSaveBtn) {
+    return false;
+  }
+  if (!window.assistantAPI?.setUiTheme) {
+    setStatus('Theme API is unavailable', true);
+    return false;
+  }
+
+  const selected = normalizeUiTheme(uiThemeSelect.value || state.uiTheme);
+  uiThemeSaveBtn.disabled = true;
+  setStatus('Saving theme...');
+  try {
+    const result = await window.assistantAPI.setUiTheme(selected);
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Save theme failed');
+    }
+    const applied = applyUiTheme(result.uiTheme || selected);
+    setStatus(applied === 'light' ? 'Theme updated: White' : 'Theme updated: Current (Dark)');
+    return true;
+  } catch (error) {
+    const message = String(error.message || error);
+    setStatus(`Save theme failed: ${message}`, true);
+    return false;
+  } finally {
+    updateRuntimeUiState();
+    if (!state.settingsOpen) {
+      inputEl.focus();
+    }
+  }
+}
+
 async function saveLiveWatchConfig() {
   if (!window.assistantAPI?.setLiveWatchConfig) {
     setStatus('Live watch config API is unavailable', true);
@@ -2035,6 +3267,26 @@ async function openReadmeDocument() {
   } catch (error) {
     const message = String(error.message || error);
     setStatus(`Open README failed: ${message}`, true);
+    return false;
+  }
+}
+
+async function openProductHomePage() {
+  if (!window.assistantAPI?.openProductHome) {
+    setStatus('Product homepage API is unavailable', true);
+    return false;
+  }
+  setStatus('Opening manman product homepage...');
+  try {
+    const result = await window.assistantAPI.openProductHome();
+    if (!result?.ok) {
+      throw new Error(result?.error || 'Product homepage is unavailable');
+    }
+    setStatus('manman product homepage opened');
+    return true;
+  } catch (error) {
+    const message = String(error.message || error);
+    setStatus(`Open product homepage failed: ${message}`, true);
     return false;
   }
 }
@@ -2592,8 +3844,88 @@ defaultChannelSaveBtn?.addEventListener('click', () => {
   saveDefaultChannel();
 });
 
+uiThemeSaveBtn?.addEventListener('click', () => {
+  void saveUiTheme();
+});
+
 liveSaveBtn.addEventListener('click', () => {
   saveLiveWatchConfig();
+});
+
+skillsRefreshBtn?.addEventListener('click', () => {
+  void refreshSkillsState({ includeCurated: true, silent: false });
+});
+
+skillsOpenRootBtn?.addEventListener('click', () => {
+  void openSkillsRootPath();
+});
+
+skillsCuratedRefreshBtn?.addEventListener('click', () => {
+  void refreshSkillsState({ includeCurated: true, silent: false });
+});
+
+skillsInstallCuratedBtn?.addEventListener('click', () => {
+  void installSelectedCuratedSkill();
+});
+
+skillsInstallGithubBtn?.addEventListener('click', () => {
+  void installGithubSkillFromInputs();
+});
+
+skillCreateBtn?.addEventListener('click', () => {
+  void createSkillFromInputs();
+});
+
+skillValidateBtn?.addEventListener('click', () => {
+  void validateSelectedSkill();
+});
+
+skillOpenSelectedBtn?.addEventListener('click', () => {
+  void openSelectedSkillPath();
+});
+
+agentSelect?.addEventListener('change', () => {
+  state.selectedAgentId = String(agentSelect.value || '').trim();
+  renderAgentEditor();
+  updateRuntimeUiState();
+});
+
+agentNewBtn?.addEventListener('click', () => {
+  newAgentDraft();
+});
+
+agentSaveBtn?.addEventListener('click', () => {
+  void saveAgentFromForm();
+});
+
+agentDeleteBtn?.addEventListener('click', () => {
+  void deleteSelectedAgent();
+});
+
+workflowSelect?.addEventListener('change', () => {
+  state.selectedWorkflowId = String(workflowSelect.value || '').trim();
+  renderWorkflowEditor();
+  updateRuntimeUiState();
+});
+
+workflowNewBtn?.addEventListener('click', () => {
+  newWorkflowDraft();
+});
+
+workflowSaveBtn?.addEventListener('click', () => {
+  void saveWorkflowFromForm();
+});
+
+workflowDeleteBtn?.addEventListener('click', () => {
+  void deleteSelectedWorkflow();
+});
+
+workflowToInputBtn?.addEventListener('click', () => {
+  applySelectedWorkflowToInput();
+});
+
+workflowRunBtn?.addEventListener('click', () => {
+  void runSelectedWorkflow();
 });
 
 permissionRefreshBtn?.addEventListener('click', () => {
@@ -2635,6 +3967,11 @@ permissionOpenAutomationBtn?.addEventListener('click', () => {
 aboutReadmeLink?.addEventListener('click', (event) => {
   event.preventDefault();
   void openReadmeDocument();
+});
+
+aboutProductHomeLink?.addEventListener('click', (event) => {
+  event.preventDefault();
+  void openProductHomePage();
 });
 
 autoBtn.addEventListener('click', () => {
@@ -2683,6 +4020,17 @@ defaultChannelSelect?.addEventListener('keydown', (event) => {
   }
 });
 
+uiThemeSelect?.addEventListener('change', () => {
+  applyUiTheme(uiThemeSelect.value || state.uiTheme);
+});
+
+uiThemeSelect?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    void saveUiTheme();
+  }
+});
+
 workdirPickBtn.addEventListener('click', () => {
   pickWorkdir();
 });
@@ -2712,6 +4060,63 @@ apiKeyInput.addEventListener('keydown', (event) => {
   if (event.key === 'Enter') {
     event.preventDefault();
     saveApiConfig();
+  }
+});
+
+skillsCuratedSelect?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    void installSelectedCuratedSkill();
+  }
+});
+
+skillsGithubUrlInput?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    void installGithubSkillFromInputs();
+  }
+});
+
+skillsGithubPathInput?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    void installGithubSkillFromInputs();
+  }
+});
+
+[
+  skillCreateNameInput,
+  skillCreatePathInput,
+  skillCreateResourcesInput,
+  skillCreateDisplayNameInput,
+  skillCreateShortDescriptionInput,
+].forEach((field) => {
+  field?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void createSkillFromInputs();
+    }
+  });
+});
+
+agentNameInput?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    void saveAgentFromForm();
+  }
+});
+
+workflowNameInput?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    void saveWorkflowFromForm();
+  }
+});
+
+workflowGoalInput?.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+    event.preventDefault();
+    void runSelectedWorkflow();
   }
 });
 
@@ -2815,12 +4220,16 @@ inputEl.addEventListener('keydown', (event) => {
 inputEl.addEventListener('input', autoResizeInput);
 
 autoResizeInput();
+applyUiTheme(state.uiTheme);
 appendMessage(
   'system',
   'Hi. Use Send for chat, Auto for task execution, or Live for proactive screen watching. Use /live <focus> to set watch focus, /live clear to reset.'
 );
 setStatus('Ready');
-loadConfig();
+void loadConfig().then(() => {
+  void refreshSkillsState({ includeCurated: false, silent: true });
+  void refreshAgentsWorkflows({ silent: true });
+});
 setSendButtonMode('idle');
 setAutoButtonMode('idle');
 setLiveButtonMode('idle');
@@ -2842,6 +4251,12 @@ if (window.assistantAPI?.onOpenSettings) {
       return;
     }
     openSettingsModal();
+  });
+}
+
+if (window.assistantAPI?.onUiTheme) {
+  window.assistantAPI.onUiTheme((payload) => {
+    applyUiTheme(payload?.uiTheme || state.uiTheme);
   });
 }
 

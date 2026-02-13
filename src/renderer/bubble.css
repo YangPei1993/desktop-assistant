@@ -1,5 +1,14 @@
 :root {
   color-scheme: dark;
+  --bubble-border: rgba(86, 111, 137, 0.44);
+  --bubble-bg: radial-gradient(circle at 28% 20%, #1d2836, #111a25 68%);
+  --bubble-logo-color: #d4deea;
+  --bubble-inner-highlight: rgba(255, 255, 255, 0.14);
+  --bubble-shadow: 0 10px 24px rgba(0, 0, 0, 0.45), inset 0 1px 0 var(--bubble-inner-highlight);
+  --bubble-shadow-hover: 0 14px 28px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  --bubble-wait-dot-border: rgba(230, 240, 255, 0.88);
+  --bubble-wait-dot-bg: #ff8e45;
+  --bubble-busy-outline: rgba(255, 142, 69, 0.5);
 }
 
 * {
@@ -16,6 +25,19 @@ body {
   user-select: none;
 }
 
+body[data-theme='light'] {
+  color-scheme: light;
+  --bubble-border: rgba(120, 116, 111, 0.18);
+  --bubble-bg: radial-gradient(circle at 28% 20%, #f9f7f4, #ece7e1 68%);
+  --bubble-logo-color: #8b8885;
+  --bubble-inner-highlight: rgba(255, 255, 255, 0.46);
+  --bubble-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 var(--bubble-inner-highlight);
+  --bubble-shadow-hover: 0 14px 28px rgba(0, 0, 0, 0.46), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --bubble-wait-dot-border: rgba(255, 255, 255, 0.9);
+  --bubble-wait-dot-bg: #ff8e45;
+  --bubble-busy-outline: rgba(255, 142, 69, 0.46);
+}
+
 .drag-area {
   width: 100%;
   height: 100%;
@@ -29,34 +51,47 @@ body {
 #assistant-bubble {
   -webkit-app-region: no-drag;
   position: relative;
-  width: 52px;
-  height: 52px;
-  border: 0;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--bubble-border);
   border-radius: 999px;
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  color: #ffffff;
   cursor: grab;
   touch-action: none;
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.24);
-  background: linear-gradient(145deg, #2d8cff, #0f53b8);
+  box-shadow: var(--bubble-shadow);
+  background: var(--bubble-bg);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 
-.bubble-label {
-  display: inline-block;
-  line-height: 1;
+.bubble-mark {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.bubble-logo-symbol {
+  position: absolute;
+  inset: 7px;
+  width: calc(100% - 14px);
+  height: calc(100% - 14px);
+}
+
+.bubble-logo-ring-path {
+  stroke: var(--bubble-logo-color);
+}
+
+.bubble-logo-dot {
+  fill: var(--bubble-logo-color);
 }
 
 .bubble-waiting-dot {
   position: absolute;
-  right: 5px;
-  top: 5px;
-  width: 9px;
-  height: 9px;
+  right: 2px;
+  top: 2px;
+  width: 10px;
+  height: 10px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.75);
-  background: #ffbd2e;
+  border: 1px solid var(--bubble-wait-dot-border);
+  background: var(--bubble-wait-dot-bg);
   opacity: 0;
   transform: scale(0.8);
   transition: opacity 0.2s ease, transform 0.2s ease;
@@ -64,7 +99,10 @@ body {
 }
 
 #assistant-bubble.busy {
-  box-shadow: 0 0 0 2px rgba(255, 189, 46, 0.48), 0 10px 22px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  box-shadow:
+    0 0 0 2px var(--bubble-busy-outline),
+    0 12px 24px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 var(--bubble-inner-highlight);
 }
 
 #assistant-bubble.busy .bubble-waiting-dot {
@@ -89,8 +127,8 @@ body {
 }
 
 #assistant-bubble:hover {
-  transform: translateY(-1px);
-  background: linear-gradient(145deg, #42a0ff, #1564d0);
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: var(--bubble-shadow-hover);
 }
 
 #assistant-bubble:active {
