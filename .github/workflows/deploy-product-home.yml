@@ -1,0 +1,66 @@
+name: Deploy Product Homepage
+
+on:
+  push:
+    branches:
+      - main
+      - codex/manman-theme-sync-v2
+    paths:
+      - src/renderer/product-home.html
+      - src/renderer/product-home.css
+      - src/renderer/assets/manman-logo.svg
+      - src/renderer/assets/manman-hero.svg
+      - src/renderer/assets/manman-flow.svg
+      - src/renderer/assets/manman-ui-chat-real.png
+      - src/renderer/assets/manman-ui-skills-real.png
+      - src/renderer/assets/manman-ui-toast-quick-real.png
+      - src/renderer/assets/manman-ui-bubble-real.png
+      - .github/workflows/deploy-product-home.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build static homepage artifact
+        run: |
+          set -euo pipefail
+          mkdir -p site/assets
+
+          cp src/renderer/product-home.html site/index.html
+          cp src/renderer/product-home.css site/product-home.css
+
+          cp src/renderer/assets/manman-logo.svg site/assets/
+          cp src/renderer/assets/manman-hero.svg site/assets/
+          cp src/renderer/assets/manman-flow.svg site/assets/
+          cp src/renderer/assets/manman-ui-chat-real.png site/assets/
+          cp src/renderer/assets/manman-ui-skills-real.png site/assets/
+          cp src/renderer/assets/manman-ui-toast-quick-real.png site/assets/
+          cp src/renderer/assets/manman-ui-bubble-real.png site/assets/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
