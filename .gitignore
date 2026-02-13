@@ -28,3 +28,27 @@ pnpm-debug.log*
 
 __pycache__/
 *.pyc
+
+# local preview screenshots (not for commit)
+/bubble-logo-preview-busy.png
+/bubble-logo-preview-v2-busy.png
+/bubble-logo-preview-v2.png
+/bubble-logo-preview.png
+/bubble-theme-dark-preview.png
+/bubble-theme-light-preview.png
+/chat-theme-dark-preview.png
+/chat-theme-light-preview.png
+/manman-ui-quick.png
+/manman-ui-toast.png
+/product-home-preview-desktop.png
+/product-home-preview-mobile.png
+/theme-settings-dark-preview.png
+/theme-settings-light-preview.png
+/theme-tab-preview.png
+
+/src/renderer/assets/manman-ui-bubble.png
+/src/renderer/assets/manman-ui-chat.png
+/src/renderer/assets/manman-ui-quick.png
+/src/renderer/assets/manman-ui-settings.png
+/src/renderer/assets/manman-ui-skills.png
+/src/renderer/assets/manman-ui-toast.png
